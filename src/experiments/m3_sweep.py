@@ -126,6 +126,10 @@ def main() -> None:
     cfg["models_cfg"] = models_cfg
 
     cells = build_cells(cfg)
+    # Shuffle so that a run stopped early is a BALANCED subsample of the design
+    # rather than "every seed of the first few families". Seeded, so the order is
+    # reproducible and the cache keys are unaffected.
+    np.random.default_rng(cfg["seed"] + 1).shuffle(cells)
     n_jobs = int(sys.argv[1]) if len(sys.argv) > 1 else 5
     print(f"[m3] {len(cells)} cells "
           f"({len(cells) // (cfg['n_seeds'] * len(cfg['models']))} LHS points "
