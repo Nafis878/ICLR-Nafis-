@@ -101,8 +101,15 @@ def load_dataset(did: int, cfg: dict):
 
     if len(Xv) < pp["min_rows"]:
         raise ValueError(f"too few rows after cleaning: {len(Xv)}")
-    if len(np.unique(yv)) < pp["min_classes"]:
+    n_uniq = int(len(np.unique(yv)))
+    if n_uniq < pp["min_classes"]:
         raise ValueError("fewer than 2 classes after cleaning")
+    if (n_uniq > pp["max_target_unique_absolute"]
+            and n_uniq / max(len(yv), 1) > pp["max_target_unique_ratio"]):
+        raise ValueError(
+            f"target looks continuous ({n_uniq} distinct values over {len(yv)} rows, "
+            f"ratio {n_uniq/len(yv):.3f}); this is a regression task, not classification"
+        )
     return Xv, yv, ds.name
 
 

@@ -47,3 +47,11 @@ preprocessing:
   ordinal_encode_categoricals: true
   min_rows: 100
   min_classes: 2
+  # TabArena includes REGRESSION tasks. Encoding a continuous target with
+  # pd.Categorical(...).codes silently produces thousands of "classes"
+  # (diamonds -> 11602). A plain cap on class count would also throw away
+  # isolet, a legitimate 26-class problem, so the rule is a unique-RATIO test:
+  # a regression target's distinct-value count scales with n, a classification
+  # target's does not. isolet is 26/7797 = 0.003; diamonds is 0.215.
+  max_target_unique_ratio: 0.02
+  max_target_unique_absolute: 50

@@ -11,7 +11,7 @@ n_test: 500
 # observations (status=timeout), never dropped (spec 3.4). Once repeat 0 of a
 # configuration times out, remaining repeats are recorded as censored-by-inference
 # rather than burning budget to re-confirm a known-hopeless cell.
-cell_timeout_s: 420
+cell_timeout_s: 240
 
 models:
   tabpfn:

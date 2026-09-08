@@ -1,0 +1,35 @@
+{
+  "notes": [
+    "TabArena resolved to OpenML suite 457 (TabArena-v0.1 Suite)"
+  ],
+  "suites": {
+    "cc18": 72,
+    "grinsztajn_num": 16,
+    "grinsztajn_cat": 7,
+    "tabarena": 51
+  },
+  "n_usable": 55,
+  "n_failed": 1,
+  "excluded_regression_tasks": [
+    {
+      "dataset_id": 46923,
+      "name": "diamonds",
+      "n_classes": 11602
+    },
+    {
+      "dataset_id": 46934,
+      "name": "houses",
+      "n_classes": 3842
+    },
+    {
+      "dataset_id": 46949,
+      "name": "physiochemical_protein",
+      "n_classes": 15903
+    },
+    {
+      "dataset_id": 46953,
+      "name": "QSAR-TID-11",
+      "n_classes": 1387
+    }
+  ]
+}
