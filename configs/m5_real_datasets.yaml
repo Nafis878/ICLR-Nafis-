@@ -1,0 +1,49 @@
+# M5 -- real dataset mapping (spec section 5/M5).
+#
+# g is fit purely on synthetic M3 data, so the ENTIRE real suite is held out.
+# There is no real-data training split. TabPFN must not touch any of these
+# datasets before the M6 pre-registration commit exists.
+
+seed: 20260908
+cache_dir: data/openml_cache
+
+# OpenML benchmark suites. TabArena's suite id is resolved at runtime; if it
+# cannot be resolved the substitution is REPORTED, never silently dropped.
+suites:
+  cc18: 99            # OpenML-CC18
+  grinsztajn_num: 337 # Grinsztajn et al. classification, numerical
+  grinsztajn_cat: 334 # Grinsztajn et al. classification, categorical
+tabarena_candidates: [457]   # TabArena-v0.1 Suite, resolved by name search on the OpenML study list
+max_datasets: 60
+
+# TabPFN v2's stated operating range. Datasets outside it are DELIBERATELY kept
+# as an out-of-range set: they are the easy positives, and without them we
+# cannot check that the score is more than "n is too big".
+tabpfn_operating_range:
+  max_n: 10000
+  max_d: 500
+  max_classes: 10
+
+# ---------------------------------------------------------------------------
+# M7 evaluation policy. Fixed HERE, before the freeze, because choosing it after
+# seeing results would be an unrecorded degree of freedom.
+# ---------------------------------------------------------------------------
+eval_policy:
+  test_size: 0.3
+  stratify: true
+  # Train rows are capped by stratified subsample; TabPFN is still ATTEMPTED on
+  # out-of-range datasets, and a genuine failure is recorded as a failure rather
+  # than excluded.
+  max_train_rows: 4000
+  max_test_rows: 2000
+  # Cap features by variance ranking when d exceeds this; recorded per dataset.
+  max_features: 500
+  on_tabpfn_error: record_as_failure
+  n_seeds: 3
+
+# Rows/columns unusable for any learner are dropped identically for every model.
+preprocessing:
+  drop_constant_columns: true
+  ordinal_encode_categoricals: true
+  min_rows: 100
+  min_classes: 2

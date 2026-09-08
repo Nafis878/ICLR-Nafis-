@@ -1,0 +1,59 @@
+# M2 -- reference predictors, regret metric, and the in-prior sanity check.
+seed: 0
+n_train: 800
+n_test: 2000
+n_seeds: 5
+
+# Fixed tuning budget, identical across baselines and RECORDED (spec section 6).
+tuning:
+  n_random_configs: 12
+  cv_folds: 3
+
+models:
+  tabpfn:
+    device: cpu
+    n_estimators: 4
+    ignore_pretraining_limits: true
+  lightgbm:
+    n_random_configs: 12
+    cv_folds: 3
+    search_space:
+      num_leaves: [7, 15, 31, 63]
+      learning_rate: [0.03, 0.06, 0.1, 0.2]
+      n_estimators: [100, 300, 600]
+      min_child_samples: [5, 10, 20, 40]
+  random_forest:
+    n_random_configs: 12
+    cv_folds: 3
+    search_space:
+      n_estimators: [200, 500]
+      max_depth: [4, 8, 16, null]
+      min_samples_leaf: [1, 2, 5, 10]
+      max_features: ["sqrt", "log2", 0.5]
+  knn:
+    n_random_configs: 12
+    cv_folds: 3
+    search_space:
+      n_neighbors: [1, 3, 5, 11, 21, 51]
+      weights: ["uniform", "distance"]
+      p: [1, 2]
+  mlp:
+    n_random_configs: 12
+    cv_folds: 3
+    search_space:
+      width: [32, 64, 128, 256]
+      depth: [1, 2, 3]
+      alpha: [0.0001, 0.001, 0.01, 0.1]
+      learning_rate_init: [0.001, 0.003, 0.01]
+
+# The in-prior anchor. If TabPFN does NOT show near-zero regret here, the spec
+# (section 7) says stop and say so plainly.
+sanity:
+  family: scm_prior_control
+  params:
+    d: 8
+    n_classes: 3
+    max_parents: 3
+    activation: tanh
+    noise_scale: 0.3
+    label_noise: 0.05

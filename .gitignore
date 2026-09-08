@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+data/openml_cache/
+results/cache/
+.pytest_cache/
+*.log

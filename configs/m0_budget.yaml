@@ -1,0 +1,30 @@
+# M0 -- compute budget probe (spec section 5/M0). No hardcoded values in code.
+seed: 0
+grid:
+  n_train: [100, 500, 1000, 2000, 5000]
+  d: [5, 10, 20, 50, 100]
+  n_classes: [2, 5]
+  repeats: 3
+n_test: 500
+
+# Hard wall-clock cap per cell. Cells exceeding it are recorded as right-censored
+# observations (status=timeout), never dropped (spec 3.4). Once repeat 0 of a
+# configuration times out, remaining repeats are recorded as censored-by-inference
+# rather than burning budget to re-confirm a known-hopeless cell.
+cell_timeout_s: 420
+
+models:
+  tabpfn:
+    device: cpu
+    n_estimators: 4          # tabpfn v2 default ensemble size
+  lightgbm:
+    # "small tuning budget", fixed and recorded (spec section 5/M2)
+    n_random_configs: 8
+    cv_folds: 3
+    search_space:
+      num_leaves: [7, 15, 31, 63]
+      learning_rate: [0.03, 0.06, 0.1, 0.2]
+      n_estimators: [100, 300, 600]
+      min_child_samples: [5, 10, 20, 40]
+
+budget_targets_core_hours: [40, 100, 200]

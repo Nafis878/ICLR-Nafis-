@@ -1,0 +1,88 @@
+# M3 -- prior recovery sweep (spec section 5/M3).
+#
+# Latin hypercube over the DGP parameter space, NOT a full grid: a grid spends
+# its budget on axis corners, while an LHS spreads the same number of cells over
+# the whole space.
+#
+# n_train is capped at 1000 because M0 measured TabPFN v2 CPU fit+predict at
+# 79 s for n=1000 and several hundred seconds by n=2000; 1000 is also the
+# threshold above which TabPFN itself refuses to run on CPU. Per spec section 9,
+# a short budget is absorbed by cutting the PARAMETER SPACE, never the seed
+# count, because seeds protect the error bars.
+
+seed: 20260908
+n_cells: 110          # LHS points, split across families
+n_seeds: 5            # >=5 per cell, per spec
+n_train_range: [200, 1000]
+n_test: 1000
+
+models: [tabpfn, strong_classical]
+
+# Lean but fixed and recorded tuning budget for the sweep (spec section 6).
+tuning:
+  n_random_configs: 8
+  cv_folds: 3
+
+# Only families/modifiers that PRESERVE the exact Bayes oracle enter the
+# regret sweep. Missingness and categorical discretization destroy it, so they
+# run in a separate labelled arm (m3_aux) scored on a different metric.
+families:
+  gaussian_mixture:
+    d: [4, 30]
+    n_classes: [2, 5]
+    separation: [0.5, 3.0]
+    cond_number: [1.0, 100.0]
+  logistic_linear:
+    d: [4, 30]
+    n_classes: [2, 5]
+    signal_scale: [0.3, 3.0]
+  piecewise_constant:
+    d: [4, 30]
+    n_classes: [2, 5]
+    depth: [2, 6]
+    leaf_purity: [0.6, 1.0]
+  rotated_piecewise_constant:
+    d: [4, 30]
+    n_classes: [2, 5]
+    depth: [2, 6]
+    leaf_purity: [0.6, 1.0]
+    rotation_strength: [0.0, 1.0]
+  gp_smooth:
+    d: [4, 30]
+    n_classes: [2, 5]
+    lengthscale: [0.3, 4.0]
+    amplitude: [1.0, 5.0]
+  high_frequency:
+    d: [4, 20]
+    n_classes: [2, 5]
+    frequency: [0.5, 6.0]
+    amplitude: [1.0, 5.0]
+  scm_prior_control:
+    d: [4, 30]
+    n_classes: [2, 5]
+    max_parents: [2, 5]
+    noise_scale: [0.1, 0.8]
+    label_noise: [0.0, 0.2]
+
+# Composable nuisance axes, sampled alongside the family parameters.
+modifier_ranges:
+  uninformative_features:
+    fraction: [0.0, 0.7]
+  label_noise:
+    rate: [0.0, 0.3]
+  class_imbalance:
+    ratio: [0.15, 1.0]
+  heavy_tails:
+    strength: [0.0, 1.5]
+
+# tau: the in-prior reference level. Stated rule, per spec section 5/M3.
+threshold_rule:
+  statistic: percentile
+  percentile: 75
+  reference_family: scm_prior_control
+  justification: >
+    tau is the 75th percentile of TabPFN's Bayes regret on scm_prior_control,
+    the in-prior anchor. Reading the threshold off the anchor rather than off the
+    pooled sweep makes "out of prior" mean "worse than TabPFN's own typical
+    in-prior behaviour", which is the quantity the paper claims to predict, and
+    keeps tau independent of how the rest of the parameter space was sampled.
