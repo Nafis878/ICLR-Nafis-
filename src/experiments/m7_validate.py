@@ -126,6 +126,18 @@ def main() -> None:
         for model in ("tabpfn", "strong_classical")
         for s in range(m5cfg["eval_policy"]["n_seeds"])
     ]
+    # Execution order (cache keys are unaffected; only the order changes):
+    #   1. seed-major, so every dataset is covered at seed 0 before any second
+    #      seed runs;
+    #   2. datasets SHUFFLED within a seed, because dataset_id is not random --
+    #      CC-18 ids are low and TabArena ids are ~46000, so id order would make
+    #      an early-stopped run almost pure CC-18. A seeded shuffle keeps any
+    #      stopping point an unbiased sample of the suite;
+    #   3. the two models of a dataset stay adjacent, so pairs complete together
+    #      and a dataset is rarely left with only one arm.
+    order = {d: i for i, d in enumerate(
+        np.random.default_rng(20260911).permutation(dsets).tolist())}
+    cells.sort(key=lambda c: (c["seed"], order[c["dataset_id"]], c["model"]))
     n_jobs = int(sys.argv[1]) if len(sys.argv) > 1 else 6
     rows = runner.run_many(cells, run_one, n_jobs=n_jobs, verbose=5)
 
