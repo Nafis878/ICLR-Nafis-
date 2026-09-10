@@ -1,0 +1,80 @@
+# M3-EXT -- extension of the prior recovery sweep to larger n.
+#
+# WHY: the original sweep capped n_train at 1000 (TabPFN v2's own CPU refusal
+# threshold), but the frozen M7 evaluation policy trains on up to 4000 real rows.
+# g was therefore EXTRAPOLATING up to 571x on n, which is what made the first
+# frozen score collapse into "n is too big". This extension covers [1000, 4000]
+# so the synthetic support actually contains the real evaluation range and g
+# interpolates.
+#
+# Same families, same modifier axes, same seed count. Only n_train moves, so the
+# extension is poolable with the original sweep.
+
+seed: 20260911          # different from M3 so the LHS points are new, not repeats
+n_cells: 28             # 4 per family; sized from the M0 cost model
+n_seeds: 5              # never cut seeds (spec section 9)
+n_train_range: [1000, 4000]
+n_test: 1000
+
+models: [tabpfn, strong_classical]
+
+tuning:
+  n_random_configs: 8
+  cv_folds: 3
+
+families:
+  gaussian_mixture:
+    d: [4, 30]
+    n_classes: [2, 5]
+    separation: [0.5, 3.0]
+    cond_number: [1.0, 100.0]
+  logistic_linear:
+    d: [4, 30]
+    n_classes: [2, 5]
+    signal_scale: [0.3, 3.0]
+  piecewise_constant:
+    d: [4, 30]
+    n_classes: [2, 5]
+    depth: [2, 6]
+    leaf_purity: [0.6, 1.0]
+  rotated_piecewise_constant:
+    d: [4, 30]
+    n_classes: [2, 5]
+    depth: [2, 6]
+    leaf_purity: [0.6, 1.0]
+    rotation_strength: [0.0, 1.0]
+  gp_smooth:
+    d: [4, 30]
+    n_classes: [2, 5]
+    lengthscale: [0.3, 4.0]
+    amplitude: [1.0, 5.0]
+  high_frequency:
+    d: [4, 20]
+    n_classes: [2, 5]
+    frequency: [0.5, 6.0]
+    amplitude: [1.0, 5.0]
+  scm_prior_control:
+    d: [4, 30]
+    n_classes: [2, 5]
+    max_parents: [2, 5]
+    noise_scale: [0.1, 0.8]
+    label_noise: [0.0, 0.2]
+
+modifier_ranges:
+  uninformative_features:
+    fraction: [0.0, 0.7]
+  label_noise:
+    rate: [0.0, 0.3]
+  class_imbalance:
+    ratio: [0.35, 1.0]   # floor raised: below ~0.2 the modifier emptied the test split
+  heavy_tails:
+    strength: [0.0, 1.5]
+
+threshold_rule:
+  statistic: percentile
+  percentile: 75
+  reference_family: scm_prior_control
+  justification: >
+    Unchanged from M3: tau is the 75th percentile of TabPFN's Bayes regret on the
+    in-prior anchor, recomputed on the pooled sweep so the threshold reflects the
+    same support the score is fitted on.

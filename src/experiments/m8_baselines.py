@@ -79,13 +79,21 @@ def main() -> None:
 
     prereg = json.load(open(sorted(glob.glob("results/preregistration_*.json"))[-1]))
     scored = pd.read_csv("results/m7_scored.csv").set_index("dataset_id")
-    real = pd.read_parquet("results/m5_real_statistics.parquet").set_index("dataset_id")
+    # The amended score uses statistics computed under the M7 evaluation policy,
+    # so the ablations must be applied to the same real-data table.
+    real_path = ("results/m5b_real_statistics_evalpolicy.parquet"
+                 if Path("results/m5b_real_statistics_evalpolicy.parquet").exists()
+                 else "results/m5_real_statistics.parquet")
+    real = pd.read_parquet(real_path).set_index("dataset_id")
     real = real.loc[real.index.intersection(scored.index)]
     scored = scored.loc[real.index]
     actual = scored["actual_gap"]
 
     cfg = runner.load_config("configs/m3_prior_sweep.yaml")
-    syn = pd.read_parquet("results/m3_sweep.parquet")
+    syn_path = ("results/m3_pooled_sweep.parquet"
+                if Path("results/m3_pooled_sweep.parquet").exists()
+                else "results/m3_sweep.parquet")
+    syn = pd.read_parquet(syn_path)
     syn = syn[(syn.status == "ok") & (syn.model == "tabpfn") & syn.regret.notna()].copy()
     id_cols = [c for c in syn.columns if c.startswith(("param_", "mod_"))] + ["family", "n_train"]
     syn["cell_id"] = syn[id_cols].astype(str).agg("|".join, axis=1)
@@ -107,7 +115,14 @@ def main() -> None:
     ]:
         f = fit_oop_score(syn, target="regret", group_col="cell_id",
                           seed=cfg["seed"], drop_stats=drop)
-        rows.append(score(label, predict(f, real), actual.to_numpy()))
+        # Clip to the synthetic support, exactly as the registered score does, so
+        # the ablations differ only in their feature set and not in domain policy.
+        lo = syn[f["features"]].astype(float).min()
+        hi = syn[f["features"]].astype(float).max()
+        Xa = real.reindex(columns=f["features"]).astype(float).clip(
+            lower=lo, upper=hi, axis=1).fillna(0.0)
+        rows.append(score(label, f["model"].predict(Xa.to_numpy(dtype=float)),
+                          actual.to_numpy()))
 
     out = pd.DataFrame(rows)
     print("=" * 78)
