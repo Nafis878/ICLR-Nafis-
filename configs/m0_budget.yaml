@@ -14,9 +14,6 @@ n_test: 500
 cell_timeout_s: 240
 
 models:
-  tabpfn:
-    device: cpu
-    n_estimators: 4          # tabpfn v2 default ensemble size
   lightgbm:
     # "small tuning budget", fixed and recorded (spec section 5/M2)
     n_random_configs: 8
@@ -26,5 +23,8 @@ models:
       learning_rate: [0.03, 0.06, 0.1, 0.2]
       n_estimators: [100, 300, 600]
       min_child_samples: [5, 10, 20, 40]
+  tabpfn:
+    device: cpu
+    n_estimators: 4          # tabpfn v2 default ensemble size
 
 budget_targets_core_hours: [40, 100, 200]
