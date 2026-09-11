@@ -1,0 +1,34 @@
+{
+  "created_utc": "20260911T214701Z",
+  "type": "M11 PRE-REGISTRATION -- three confirmatory arms closing reviewer objections",
+  "motivation": "Five objections were identified against the current results. Three are testable and are fixed here; one (baseline strength) is a measurement change with no directional hypothesis; one (framing) needs no experiment. Directions are fixed BEFORE any cell runs.",
+  "arm_W5_latent_confounding": {
+    "objection": "scm_prior_control restricts the label to observed nodes, so the in-prior anchor lacks the latent confounding present in TabPFN's real prior.",
+    "fix": "scm_latent_confounded: a DISCRETE latent Z drives both the feature distribution and the decision rule, so p(y|x) = sum_z p(y|x,z) p(z|x) is an exact finite sum. Genuine confounding AND an exact oracle, with no Monte Carlo error.",
+    "H_W5": "TabPFN's Bayes regret on scm_latent_confounded remains LOW (comparable to the restricted anchor, and well below the out-of-prior families such as high_frequency). Direction fixed: we predict the anchor SURVIVES confounding. If regret rises sharply instead, that is a finding about where the recovered prior stops matching, and will be reported as such rather than reframed.",
+    "test": "paired comparison of TabPFN regret on scm_prior_control vs scm_latent_confounded at matched d, n_classes, n_train, 5 seeds."
+  },
+  "arm_W1_scale_ladder": {
+    "objection": "n was capped at 1500-4000 while TabPFN v2 is rated to ~10k rows, so the evaluation sat outside the model's stated operating range.",
+    "fix": "paired rotation probe at n_train in [500, 2000, 10000] on low-dimensional real datasets with enough rows; 10000 is TabPFN v2's stated ceiling.",
+    "H_W1": "The paired degradation stays POSITIVE at every level, including n=10000. A significant positive Spearman(n_train, degradation) means the earlier cap UNDERSTATED the effect; negative means it overstated it. Both reportable; the pre-registered claim is only that the effect survives at all three levels.",
+    "exclusions": "datasets with >10 classes (TabPFN v2 hard limit) are dropped by rule, e.g. Food_Delivery_Time (45 classes)."
+  },
+  "arm_armC_fix": {
+    "objection": "SELF-IDENTIFIED DEFECT. M10 arm C permuted categorical codes but never passed categorical_features_indices, so TabPFN saw ordinal codes as plain numbers. The existing result is therefore a PREPROCESSING finding, not a statement about TabPFN's prior.",
+    "fix": "add the declared-categorical condition, giving a 2x2: {declared, undeclared} x {original, permuted}. The undeclared half is already cached.",
+    "H_armC": "If the permutation effect PERSISTS when categoricals are declared, it is a property of the model. If it VANISHES, the original arm C measured only the cost of not declaring them -- a sharp preprocessing warning, and the earlier claim must be restated. We do not predict which; both are reported, and the M10 arm C wording will be corrected either way."
+  },
+  "analysis_plan": [
+    "each arm reported on its own n",
+    "no arm pooled into M9 primary or replication results",
+    "directions and alpha (0.05) fixed here"
+  ],
+  "code_sha256": {
+    "src/dgp/scm.py": "07214c65aaf736fdf27d6ceae2c5fd563f385fb9c956f7dc3368229c6df5f42a",
+    "src/dgp/registry.py": "45d7ccc6a341a80b5649037b23c5c5b9c6c4e7272ad3dafe9c290bd911575cb0",
+    "tests/test_dgp.py": "c63415b0383343d1be7bc89fb301c501c78d4e3fb39b09b9ee7c3e5557b8f813",
+    "src/stats/features.py": "ef28a806fa3ceb4fe02dce98e10f6890a279632d4be3c3b743fa6dc4945d3403"
+  },
+  "commit_hash": null
+}

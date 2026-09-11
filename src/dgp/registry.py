@@ -6,13 +6,14 @@ import numpy as np
 from dgp.closed_form import GaussianMixture, LogisticLinear
 from dgp.latent import GPSmooth, HighFrequency, PiecewiseConstant, RotatedPiecewiseConstant
 from dgp.modifiers import REGISTRY as MOD_REGISTRY, apply_chain
-from dgp.scm import SCMPriorControl
+from dgp.scm import SCMLatentConfounded, SCMPriorControl
 
 FAMILIES = {
     c.name: c
     for c in [
         GaussianMixture, LogisticLinear, PiecewiseConstant,
         RotatedPiecewiseConstant, GPSmooth, HighFrequency, SCMPriorControl,
+        SCMLatentConfounded,
     ]
 }
 

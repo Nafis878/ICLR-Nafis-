@@ -134,3 +134,93 @@ def test_label_noise_posterior_update_is_exact():
     # Analytic risk under the noisy law, computed from the updated posterior.
     ana = -(p2 * np.log(np.clip(p2, 1e-12, None))).sum(1).mean()
     assert abs(emp - ana) < 0.02, f"empirical {emp:.4f} vs analytic {ana:.4f}"
+
+
+# --------------------------------------------------------------------------- #
+# Latent-confounded SCM: the anchor variant with a genuine unobserved confounder
+# --------------------------------------------------------------------------- #
+
+def _confounded(**kw):
+    from dgp.scm import SCMLatentConfounded
+
+    base = dict(d=6, n_classes=3, n_latent_states=4, confounding=1.0, struct_seed=2)
+    base.update(kw)
+    return SCMLatentConfounded(**base)
+
+
+def test_confounded_scm_deterministic():
+    g = _confounded()
+    X1, y1 = g.sample(800, seed=11)
+    X2, y2 = g.sample(800, seed=11)
+    assert np.array_equal(X1, X2) and np.array_equal(y1, y2)
+
+
+def test_confounded_scm_posterior_is_calibrated():
+    """THE correctness test for the discrete marginalisation.
+
+    If p(y|x) = sum_z p(y|x,z) p(z|x) is computed correctly, then among points where
+    the oracle predicts probability q for the observed class, the empirical frequency
+    of that class must be q. This is NON-CIRCULAR: it compares the analytic posterior
+    against realised labels, so a wrong marginalisation -- for example using the prior
+    p(z) instead of the posterior p(z|x), which is the natural bug here -- breaks
+    calibration immediately, while it would still pass a Monte-Carlo self-consistency
+    check.
+    """
+    g = _confounded()
+    X, y = g.sample(200_000, seed=5)
+    p = g.bayes_predict_proba(X)
+    for c in range(g.n_classes):
+        q = p[:, c]
+        for lo, hi in [(0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]:
+            m = (q >= lo) & (q < hi)
+            if m.sum() < 500:
+                continue
+            predicted = q[m].mean()
+            empirical = (y[m] == c).mean()
+            se = np.sqrt(max(empirical * (1 - empirical), 1e-9) / m.sum())
+            assert abs(predicted - empirical) < max(5 * se, 0.02), (
+                f"class {c} bin [{lo},{hi}): predicted {predicted:.4f} "
+                f"vs empirical {empirical:.4f} (n={m.sum()})"
+            )
+
+
+def test_confounded_scm_beats_ignoring_the_latent():
+    """Marginalising over z must beat pretending the latent prior is the posterior.
+
+    This is what makes the confounding REAL rather than decorative: if p(z|x) carried
+    no information the two would tie.
+    """
+    g = _confounded()
+    X, y = g.sample(60_000, seed=7)
+    idx = np.arange(len(y))
+
+    correct = g.bayes_predict_proba(X)
+    # Same model, but using the latent PRIOR instead of the posterior given x.
+    pyxz = g._p_y_given_xz(X)
+    eps = g.label_noise
+    pyxz = (1 - eps) * pyxz + eps / g.n_classes
+    naive = np.einsum("k,nkc->nc", g.pi, pyxz)
+
+    ll_correct = -np.log(np.clip(correct[idx, y], 1e-12, None)).mean()
+    ll_naive = -np.log(np.clip(naive[idx, y], 1e-12, None)).mean()
+    assert ll_correct < ll_naive - 1e-3, (
+        f"marginalisation gives no benefit: {ll_correct:.5f} vs {ll_naive:.5f}"
+    )
+
+
+def test_confounding_strength_is_monotone():
+    """confounding=0 collapses to a single shared rule, so the latent should matter
+    less than at confounding=1. Guards the parameter actually doing something."""
+    gap = {}
+    for c in (0.0, 1.0):
+        g = _confounded(confounding=c)
+        X, y = g.sample(40_000, seed=3)
+        idx = np.arange(len(y))
+        correct = g.bayes_predict_proba(X)
+        pyxz = g._p_y_given_xz(X)
+        eps = g.label_noise
+        pyxz = (1 - eps) * pyxz + eps / g.n_classes
+        naive = np.einsum("k,nkc->nc", g.pi, pyxz)
+        gap[c] = (-np.log(np.clip(naive[idx, y], 1e-12, None)).mean()
+                  + np.log(np.clip(correct[idx, y], 1e-12, None)).mean())
+    assert gap[1.0] > gap[0.0], f"confounding axis inert: {gap}"

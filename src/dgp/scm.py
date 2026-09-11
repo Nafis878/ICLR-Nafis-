@@ -119,3 +119,124 @@ class SCMPriorControl(DGP):
 
     def bayes_predict_proba(self, X: np.ndarray) -> np.ndarray:
         return self._proba_from_moments(X)
+
+
+class SCMLatentConfounded(DGP):
+    """SCM with a genuine LATENT CONFOUNDER that still admits an EXACT Bayes oracle.
+
+    WHY THIS EXISTS. SCMPriorControl deliberately restricts the label to depend only
+    on OBSERVED nodes, which d-separates y from the latents and buys a closed-form
+    posterior. That restriction is the main caveat on the in-prior anchor: TabPFN's
+    real prior allows latent confounding, so an anchor without it is not quite the
+    right anchor.
+
+    The restriction existed because marginalising a CONTINUOUS latent has no closed
+    form. Making the confounder DISCRETE removes the obstacle entirely:
+
+        Z ~ Categorical(pi)                      latent, never observed
+        X | Z = z ~ N(mu_z, Sigma)               Z shifts the feature distribution
+        y | X = x, Z = z ~ Cat(softmax(x W_z))   Z ALSO changes the decision rule
+
+        p(y | x) = sum_z p(y | x, z) p(z | x),   p(z | x) prop-to pi_z N(x; mu_z, Sigma)
+
+    The sum is finite, so the posterior is exact -- no Monte Carlo error. Z is a true
+    confounder: it drives both the features and the label, and the observer never sees
+    it, so the x -> y mapping genuinely differs across unobserved sub-populations. This
+    is the structure that a "label reads only observed nodes" model cannot express.
+
+    A shared Sigma keeps p(x | z) numerically stable at high dimension and makes the
+    log-likelihood linear in x, exactly as in GaussianMixture.
+    """
+
+    name = "scm_latent_confounded"
+    has_closed_form_bayes = True
+
+    def __init__(
+        self,
+        d: int,
+        n_classes: int = 2,
+        n_latent_states: int = 3,
+        confounding: float = 1.0,
+        separation: float = 1.5,
+        signal_scale: float = 1.5,
+        label_noise: float = 0.05,
+        struct_seed: int = 0,
+    ):
+        super().__init__(
+            d,
+            n_classes,
+            n_latent_states=n_latent_states,
+            confounding=confounding,
+            separation=separation,
+            signal_scale=signal_scale,
+            label_noise=label_noise,
+        )
+        rng = np.random.default_rng(struct_seed)
+        self.K = int(n_latent_states)
+        self.label_noise = float(label_noise)
+
+        # Latent prior.
+        w = rng.random(self.K) + 0.5
+        self.pi = w / w.sum()
+
+        # Z shifts the feature distribution (the confounding path into X).
+        M = rng.standard_normal((self.K, d))
+        M /= np.linalg.norm(M, axis=1, keepdims=True)
+        self.mu = M * separation
+
+        # Shared covariance, unit log-determinant.
+        Q, _ = np.linalg.qr(rng.standard_normal((d, d)))
+        eigs = np.exp(rng.standard_normal(d) * 0.3)
+        eigs /= np.exp(np.mean(np.log(eigs)))
+        self.cov = Q @ np.diag(eigs) @ Q.T
+        self.cov = (self.cov + self.cov.T) / 2
+        self.prec = np.linalg.inv(self.cov)
+        self.chol = np.linalg.cholesky(self.cov)
+
+        # Z also changes the decision rule (the confounding path into y).
+        # `confounding` interpolates between one shared rule (0) and fully
+        # per-state rules (1), so the axis can be swept.
+        W_shared = rng.standard_normal((d, n_classes))
+        W_state = rng.standard_normal((self.K, d, n_classes))
+        W = (1.0 - confounding) * W_shared[None, :, :] + confounding * W_state
+        self.W = W * (signal_scale / np.sqrt(d))
+        self.b = rng.standard_normal((self.K, n_classes)) * 0.3 * confounding
+
+    def _log_p_x_given_z(self, X: np.ndarray) -> np.ndarray:
+        """(n, K) Gaussian log-likelihood, dropping z-independent constants."""
+        diff = X[:, None, :] - self.mu[None, :, :]           # (n, K, d)
+        m = np.einsum("nkd,de,nke->nk", diff, self.prec, diff)
+        return -0.5 * m
+
+    def _posterior_z(self, X: np.ndarray) -> np.ndarray:
+        logp = self._log_p_x_given_z(X) + np.log(self.pi)[None, :]
+        logp -= logp.max(axis=1, keepdims=True)
+        p = np.exp(logp)
+        return p / p.sum(axis=1, keepdims=True)
+
+    def _p_y_given_xz(self, X: np.ndarray) -> np.ndarray:
+        """(n, K, C) conditional label law for each latent state."""
+        logits = np.einsum("nd,kdc->nkc", X, self.W) + self.b[None, :, :]
+        logits -= logits.max(axis=2, keepdims=True)
+        e = np.exp(logits)
+        return e / e.sum(axis=2, keepdims=True)
+
+    def sample(self, n: int, seed: int):
+        rng = np.random.default_rng(seed)
+        z = rng.choice(self.K, size=n, p=self.pi)
+        X = self.mu[z] + rng.standard_normal((n, self.d)) @ self.chol.T
+        # Label drawn from the TRUE state-specific rule, not the marginal.
+        p_yxz = self._p_y_given_xz(X)[np.arange(n), z, :]
+        eps = self.label_noise
+        p_yxz = (1.0 - eps) * p_yxz + eps / self.n_classes
+        u = rng.random(n)
+        y = (u[:, None] > np.cumsum(p_yxz, axis=1)).sum(1).clip(0, self.n_classes - 1)
+        return X, y.astype(int)
+
+    def bayes_predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Exact marginal posterior: sum_z p(y | x, z) p(z | x)."""
+        pz = self._posterior_z(X)                    # (n, K)
+        pyxz = self._p_y_given_xz(X)                 # (n, K, C)
+        eps = self.label_noise
+        pyxz = (1.0 - eps) * pyxz + eps / self.n_classes
+        return np.einsum("nk,nkc->nc", pz, pyxz)
