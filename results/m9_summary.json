@@ -1,27 +1,27 @@
 {
-  "n_datasets": 19,
-  "n_failed_cells": 60,
+  "n_datasets": 38,
+  "n_failed_cells": 64,
   "H1": {
     "claim": "TabPFN degrades under rotation",
-    "mean_delta": 0.023926771357578487,
-    "median_delta": 0.013511712406140075,
-    "n_degraded": 16,
-    "p_one_sided": 0.000133514404296875,
+    "mean_delta": 0.025588313883278795,
+    "median_delta": 0.015084595139463669,
+    "n_degraded": 34,
+    "p_one_sided": 1.3496901374310255e-09,
     "supported": true
   },
   "H2": {
     "claim": "strong_classical degrades more",
-    "mean_excess": -0.0030770466549829853,
-    "p_one_sided": 0.5078392028808594,
+    "mean_excess": -0.00015753795951868818,
+    "p_one_sided": 0.29279386867710855,
     "supported": false
   },
   "H3": {
     "claim": "rotation_alignment predicts degradation",
-    "spearman": 0.0456140350877193,
-    "p_one_sided": 0.42644803675157944,
+    "spearman": 0.22661122661122662,
+    "p_one_sided": 0.08563478540417653,
     "ci95": [
-      -0.4781834372217275,
-      0.5443424237307214
+      -0.13251272419060087,
+      0.5517479791710813
     ],
     "supported": false
   }
