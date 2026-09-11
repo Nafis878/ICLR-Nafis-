@@ -1,0 +1,45 @@
+{
+  "created_utc": "20260911T052412Z",
+  "type": "M9 PRE-REGISTRATION -- paired rotation-transfer probe on real data",
+  "motivation": "M7 was underpowered: 9/53 positives, bootstrap 95% CI on AUROC [0.133, 0.579] which contains chance; ~381 datasets would be needed for AUROC 0.70 at 80% power. This experiment replaces the ill-posed binary task with a paired, continuous, large-effect one derived from the M3 controlled rotation probe.",
+  "hypotheses": {
+    "H1": "TabPFN test log-loss INCREASES under rotation of the numeric block (paired one-sided Wilcoxon, alpha=0.05).",
+    "H2": "strong_classical degrades MORE than TabPFN under the same rotation (paired one-sided), because its tree members are axis-aligned.",
+    "H3": "rotation_alignment, computed on the UNROTATED training split and frozen at M6, positively predicts the magnitude of TabPFN's degradation (Spearman > 0, one-sided). This is the out-of-prior claim restated on a target with variance to predict."
+  },
+  "design": {
+    "unit": "one real dataset, measured twice (original vs rotated) on the SAME split",
+    "datasets": 55,
+    "conditions": [
+      "original",
+      "rotated"
+    ],
+    "models": [
+      "tabpfn",
+      "strong_classical"
+    ],
+    "max_train_rows": 1500,
+    "max_test_rows": 1500,
+    "min_numeric_columns": 4,
+    "rotation": "Haar-random orthogonal map on the standardized numeric block; train moments only; identical matrix for train and test",
+    "tuning_budget": {
+      "n_random_configs": 16,
+      "cv_folds": 3,
+      "note": "2x the M7 budget, to blunt the under-tuned-baseline objection"
+    },
+    "split_seed": 0,
+    "rotation_seed": "10000 + dataset_id"
+  },
+  "analysis_plan": {
+    "H1": "Wilcoxon signed-rank on (logloss_rotated - logloss_original) for TabPFN",
+    "H2": "Wilcoxon signed-rank on (delta_strong_classical - delta_tabpfn)",
+    "H3": "Spearman(rotation_alignment, delta_tabpfn) with bootstrap 95% CI",
+    "stopping_rule": "all cells, or report exactly which datasets completed",
+    "no_outcome_dependent_choices": "metric, tests and direction are fixed here"
+  },
+  "code_sha256": {
+    "src/experiments/m9_rotation_transfer.py": "0083f11279ee6e53464e996a838e705663e52cac73f21105226dba2243d4a750",
+    "src/stats/features.py": "ef28a806fa3ceb4fe02dce98e10f6890a279632d4be3c3b743fa6dc4945d3403"
+  },
+  "commit_hash": null
+}
