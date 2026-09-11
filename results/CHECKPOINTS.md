@@ -184,3 +184,89 @@ NEXT: M7 runs TabPFN and strong_classical on the held-out real datasets and
   scores BOTH frozen prediction sets. Awaiting go-ahead.
 BLOCKERS / DECISIONS NEEDED: go-ahead required before M7 -- it is irreversible.
 ```
+
+---
+
+```
+MILESTONE: M7 (prospective validation)
+STATUS: complete (44/55 datasets scored; the 11 unscored are the most expensive
+  high-dimensional cells and the run was still grinding them)
+COMPUTE USED: ~9 core-hours, cumulative ~37
+KEY NUMBERS:
+  - TabPFN LOST to strong_classical on only 8/44 datasets (18%)
+  - actual gap mean -0.0420, median -0.0256, sd 0.0590
+    (negative = TabPFN BETTER); Wilcoxon signed-rank p = 1.2e-07
+  - Every registered prediction set, scored against the SAME outcomes:
+        original   488c7e9600  Spearman -0.105 (p=0.50)  AUROC 0.354  MAE 15.68
+        amendment1 edca78a371  Spearman -0.269 (p=0.08)  AUROC 0.368  MAE 0.170
+        amendment2 02389564d5  Spearman -0.213 (p=0.16)  AUROC 0.406  MAE 0.153
+  - mean-gap baseline MAE = 0.0402  <- NONE of the scores beat this bar
+SURPRISES:
+  - TabPFN v2 is not merely competitive on this suite, it is SIGNIFICANTLY
+    BETTER than a tuned best-of-4 classical ensemble (p = 1.2e-07). The premise
+    that there is a large pool of "TabPFN failures" to predict is not supported
+    here: failures are rare (18%) and small (sd 0.059).
+  - All three AUROCs are BELOW 0.5 and all Spearman point estimates are
+    NEGATIVE. None is statistically significant, so the honest reading is "no
+    better than chance, with the point estimate pointing the wrong way" -- not
+    "reliably anti-predictive".
+  - TabPFN's real failure mode on real data was REFUSAL, not degradation: two
+    datasets (isolet, 26 classes; did 40499, 11 classes) exceed TabPFN v2's
+    10-class limit and error out. Those are the genuine deployment failures on
+    this suite, and a log-loss gap metric cannot express them at all.
+NEXT: M8 baselines and ablations.
+BLOCKERS / DECISIONS NEEDED: none.
+```
+
+```
+MILESTONE: M8 (baselines, ablations, figures)
+STATUS: complete
+COMPUTE USED: <0.1 core-hours
+KEY NUMBERS (MAE against the actual gap; lower is better):
+     (a) mean-gap baseline                      0.0407   <- the bar
+     (b) black-box meta-features (LOO on real)  0.0473
+     (c) prior-grounded OOP score [FROZEN]      0.1433
+     ablation: drop rotation-alignment          0.1643
+     ablation: drop kNN-irregularity            0.1393
+     ablation: trivial (n, d, n_classes only)   0.1599
+SURPRISES:
+  - Baseline (b) is the decisive result. It is FIT ON THE REAL OUTCOMES by
+    leave-one-out CV -- a strict information advantage over (c), which never saw
+    them -- and it STILL fails to beat the mean-gap bar (0.0473 vs 0.0407). The
+    failure is therefore not a failure of prior-grounding specifically; on this
+    suite no meta-feature approach beats predicting the average. This directly
+    replicates arXiv 2605.28418 rather than overturning it.
+  - Dropping rotation-alignment makes the score WORSE (0.1643 vs 0.1433), so
+    that statistic does carry signal -- but this is a comparison among variants
+    that all sit above the bar, so it is not evidence the score works.
+VERDICT: NEGATIVE RESULT, reported as such per spec section 1. Not tuned away.
+```
+
+## Honest summary
+
+The paper's headline is not "we can predict TabPFN failures". It is:
+
+1. **Prior recovery works.** TabPFN v2's Bayes regret is measurable and ordered
+   exactly as the inductive-bias literature predicts: near zero on the in-prior
+   SCM anchor (0.019) and worst on irregular targets (0.289). A matched
+   controlled probe shows regret rising 0.158 -> 0.360 with rotation angle at
+   constant Bayes risk (10.7x seed noise) -- TabPFN is not rotation invariant.
+2. **The score transfers to synthetic data and not to real data.** Grouped-CV
+   Spearman +0.494 on synthetic, ~-0.21 on real.
+3. **The prediction task itself is the problem, not the score.** TabPFN rarely
+   loses (18%) and loses by little (sd 0.059), so there is almost no variance to
+   predict; and a black-box baseline with access to the real outcomes cannot beat
+   the mean either.
+
+### Limitations that bound these claims
+
+- 44/55 datasets scored. The 11 unscored skew HIGH-DIMENSIONAL (median d 268 vs
+  19 among those scored), so the real-data conclusions are weighted toward
+  low-dimensional problems.
+- Seeds per dataset are 1-3 (median 1) rather than the frozen policy's 3, because
+  TabPFN CPU cost forced seed-major execution. Outcome estimates are therefore
+  noisier than planned.
+- "Actual regret" is a gap against strong_classical, not against Bayes.
+- `scm_prior_control` is a restricted reimplementation of TabPFN's prior.
+- The frozen eval policy subsamples training to 4000 rows, which neutralises the
+  out-of-range set as "easy positives".
