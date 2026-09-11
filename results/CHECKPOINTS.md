@@ -346,3 +346,59 @@ say we cannot. The defensible claim is narrower and better supported:
 > (p = 0.086). We supply the power analyses showing these questions need ~119
 > and ~381 datasets respectively -- so the field's negative results to date,
 > including arXiv 2605.28418, may be underpowered rather than conclusive.
+
+---
+
+```
+MILESTONE: M9-REP (independent replication)  -- pre-registered at 4b14eb6
+STATUS: complete. 316/316 cells, 57 eligible datasets of the 91 that no model in
+  this project had ever touched (excluded at M5 by a seeded budget sample drawn
+  before any outcome existed).
+KEY NUMBERS -- PRIMARY analysis, replication set alone:
+  H1-REP  TabPFN degrades under rotation
+            mean +0.0313, median +0.0121, worse on 52/57 datasets
+            Wilcoxon one-sided p = 3.6e-10                  -> SUPPORTED
+  H3-REP  rotation_alignment predicts WHICH datasets degrade
+            Spearman +0.530, one-sided p = 1.14e-05
+            bootstrap 95% CI [+0.304, +0.704]  (excludes 0) -> SUPPORTED
+SECONDARY (descriptive only, both n stated):
+  pooled n = 95 (38 primary + 57 replication)
+    H1  worse on 86/95, p = 7.7e-16
+    H3  Spearman +0.409, p = 1.9e-05, CI [+0.218, +0.578]
+SURPRISES:
+  - H3 REPLICATED and is now established on an independent, pre-registered
+    sample. The primary test was underpowered (rho +0.227, p=0.086, 3.1x short),
+    not wrong. The out-of-prior claim holds for the rotation axis.
+  - The replication effect (+0.530) is larger than the primary (+0.227). This is
+    reported rather than averaged away. Sample composition is near-identical
+    (median n_eval_train 3782 vs 3476, d_eval 23 vs 21, rotation_alignment 1.05
+    vs 1.05; predictor sd 0.123 vs 0.165), but the replication's OUTCOME variance
+    is roughly double (delta sd 0.0611 vs 0.0298). A correlation is easier to
+    resolve when the outcome has more dynamic range, which is the most likely
+    mechanical explanation. The pooled +0.409 is the conservative estimate.
+  - Note the statistic that carries this result is the one the spec got WRONG.
+    The specified kNN-based rotation score is identically 1.0 because Euclidean
+    kNN is exactly rotation invariant; rebasing it on an axis-aligned learner
+    (documented at M4, before any freeze) is what made it informative.
+NEXT: none. This closes the prospective-validation arc with a positive,
+  replicated, pre-registered predictive result.
+BLOCKERS / DECISIONS NEEDED: none.
+```
+
+## Final headline claim (supersedes the earlier revision)
+
+> We recover TabPFN v2's effective prior quantitatively against exact Bayes
+> oracles, and show the failure axes it reveals are both real and PREDICTIVE.
+> Rotating a dataset's numeric block -- an information-preserving transform, with
+> Bayes risk provably unchanged -- degrades TabPFN on 86 of 95 real datasets
+> (p = 7.7e-16). A single observable statistic derived from the recovered prior
+> predicts WHICH datasets degrade, at Spearman +0.53 on a pre-registered
+> independent replication set (p = 1.1e-05, CI [+0.30, +0.70]).
+>
+> The same machinery does NOT predict TabPFN's win/loss against a tuned
+> classical ensemble: that score is indistinguishable from chance, and we give
+> the power analysis showing the question needs ~381 datasets rather than the ~50
+> typical of this literature. Prior-grounded prediction works for a KNOWN
+> degradation axis and fails for open-ended model routing -- and the prior
+> negative results in this area, including arXiv 2605.28418, may be underpowered
+> rather than conclusive.
