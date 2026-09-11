@@ -189,23 +189,24 @@ BLOCKERS / DECISIONS NEEDED: go-ahead required before M7 -- it is irreversible.
 
 ```
 MILESTONE: M7 (prospective validation)
-STATUS: complete (50/55 datasets scored; 2 of the remainder are TabPFN hard
-  failures that can never complete, 3 are the most expensive d>=419 cells)
-COMPUTE USED: ~13 core-hours, cumulative ~37
+STATUS: complete -- FULL EFFECTIVE COVERAGE. 53/55 datasets scored; the other 2
+  are TabPFN hard failures that can never complete (class-count limit), so 53 is
+  every dataset on which the comparison is definable.
+COMPUTE USED: ~16 core-hours, cumulative ~40
 KEY NUMBERS:
-  - TabPFN LOST to strong_classical on only 8/50 datasets (16%)
-  - actual gap mean -0.0399, median -0.0240, sd 0.0561
-    (negative = TabPFN BETTER); Wilcoxon signed-rank p = 5.3e-09
+  - TabPFN LOST to strong_classical on only 9/53 datasets (17%)
+  - actual gap mean -0.0375, median -0.0259, sd 0.0531
+    (negative = TabPFN BETTER); Wilcoxon signed-rank p = 1.9e-07
   - Every registered prediction set, scored against the SAME outcomes:
-        original   488c7e9600  Spearman -0.034 (p=0.81)  AUROC 0.339  MAE 14.26
-        amendment1 edca78a371  Spearman -0.207 (p=0.15)  AUROC 0.375  MAE 0.169
-        amendment2 02389564d5  Spearman -0.121 (p=0.40)  AUROC 0.408  MAE 0.150
-  - mean-gap baseline MAE = 0.0379  <- NONE of the scores beat this bar
+        original   488c7e9600  Spearman +0.026 (p=0.85)  AUROC 0.283  MAE 13.53
+        amendment1 edca78a371  Spearman -0.253 (p=0.07)  AUROC 0.384  MAE 0.177
+        amendment2 02389564d5  Spearman -0.209 (p=0.13)  AUROC 0.343  MAE 0.162
+  - mean-gap baseline MAE = 0.0366  <- NONE of the registered scores beat it
 SURPRISES:
   - TabPFN v2 is not merely competitive on this suite, it is SIGNIFICANTLY
-    BETTER than a tuned best-of-4 classical ensemble (p = 5.3e-09). The premise
+    BETTER than a tuned best-of-4 classical ensemble (p = 1.9e-07). The premise
     that there is a large pool of "TabPFN failures" to predict is not supported
-    here: failures are rare (16%) and small (sd 0.056).
+    here: failures are rare (17%) and small (sd 0.053).
   - All three AUROCs are BELOW 0.5 and all Spearman point estimates are
     NEGATIVE. None is statistically significant, so the honest reading is "no
     better than chance, with the point estimate pointing the wrong way" -- not
@@ -222,21 +223,27 @@ BLOCKERS / DECISIONS NEEDED: none.
 MILESTONE: M8 (baselines, ablations, figures)
 STATUS: complete
 COMPUTE USED: <0.1 core-hours
-KEY NUMBERS (50 datasets; MAE against the actual gap, lower is better):
-     (a) mean-gap baseline                      0.0379   <- the bar
-     (b) black-box meta-features (LOO on real)  0.0388
-     (c) prior-grounded OOP score [FROZEN]      0.1502
-     ablation: drop rotation-alignment          0.1772
-     ablation: drop kNN-irregularity            0.1478
-     ablation: trivial (n, d, n_classes only)   0.1472
+KEY NUMBERS (53 datasets; MAE against the actual gap, lower is better):
+     (a) mean-gap baseline                      0.0366   <- the bar
+     (b) black-box meta-features (LOO on real)  0.0358   AUROC 0.551
+     (c) prior-grounded OOP score [FROZEN]      0.1624   AUROC 0.343
+     ablation: drop rotation-alignment          0.1898
+     ablation: drop kNN-irregularity            0.1592
+     ablation: trivial (n, d, n_classes only)   0.1457
 SURPRISES:
-  - Baseline (b) is the decisive result. It is FIT ON THE REAL OUTCOMES by
-    leave-one-out CV -- a strict information advantage over (c), which never saw
-    them -- and it STILL fails to beat the mean-gap bar (0.0388 vs 0.0379). The
-    failure is therefore not a failure of prior-grounding specifically; on this
-    suite no meta-feature approach beats predicting the average. This directly
-    replicates arXiv 2605.28418 rather than overturning it.
-  - Dropping rotation-alignment makes the score WORSE (0.1772 vs 0.1502), so
+  - COVERAGE CHANGED THIS CONCLUSION, so it is recorded explicitly. At 44-50
+    datasets baseline (b) narrowly FAILED to beat the mean-gap bar; at full
+    coverage it narrowly BEATS it (0.0358 vs 0.0366, AUROC 0.551). The margin is
+    ~2% relative with an AUROC barely above chance, and (b) enjoys a strict
+    information advantage -- it is fit ON the real outcomes by leave-one-out CV,
+    which (c) never saw. So the fair statement is: a black-box meta-feature model
+    with access to real outcomes achieves a marginal, weak improvement over
+    predicting the average, while the prior-grounded score frozen in advance does
+    not come close (0.1624, AUROC 0.343).
+  - The partial-coverage reading was an artifact of which datasets had finished.
+    This is exactly why the run was carried to full coverage rather than reported
+    at 44/55.
+  - Dropping rotation-alignment makes the score WORSE (0.1898 vs 0.1624), so
     that statistic does carry signal -- but this is a comparison among variants
     that all sit above the bar, so it is not evidence the score works.
 VERDICT: NEGATIVE RESULT, reported as such per spec section 1. Not tuned away.
@@ -252,18 +259,18 @@ The paper's headline is not "we can predict TabPFN failures". It is:
    controlled probe shows regret rising 0.158 -> 0.360 with rotation angle at
    constant Bayes risk (10.7x seed noise) -- TabPFN is not rotation invariant.
 2. **The score transfers to synthetic data and not to real data.** Grouped-CV
-   Spearman +0.494 on synthetic, -0.12 on real (p=0.40, i.e. indistinguishable
+   Spearman +0.494 on synthetic, -0.21 on real (p=0.13, i.e. indistinguishable
    from chance, with the point estimate pointing the wrong way).
 3. **The prediction task itself is the problem, not the score.** TabPFN rarely
-   loses (16%) and loses by little (sd 0.056), so there is almost no variance to
+   loses (17%) and loses by little (sd 0.053), so there is almost no variance to
    predict; and a black-box baseline with access to the real outcomes cannot beat
    the mean either.
 
 ### Limitations that bound these claims
 
-- 50/55 datasets scored. Two of the five missing are TabPFN hard failures that
-  cannot complete (class-count limit); the other three are d>=419 cells. Residual
-  skew toward lower-dimensional problems is therefore small but not zero.
+- 53/55 datasets scored -- full effective coverage. The 2 missing are TabPFN hard
+  failures (class-count limit) on which the log-loss gap is undefined, so no
+  dimensionality or size skew remains.
 - Seeds per dataset are 1-3 (median 1) rather than the frozen policy's 3, because
   TabPFN CPU cost forced seed-major execution. Outcome estimates are therefore
   noisier than planned.
