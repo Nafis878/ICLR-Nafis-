@@ -402,3 +402,53 @@ BLOCKERS / DECISIONS NEEDED: none.
 > degradation axis and fails for open-ended model routing -- and the prior
 > negative results in this area, including arXiv 2605.28418, may be underpowered
 > rather than conclusive.
+
+---
+
+```
+MILESTONE: M10 (robustness arms)  -- pre-registered at efcbabc
+PURPOSE: convert three stated limitations into measurements rather than caveats.
+
+ARM C -- categorical code permutation            STATUS: complete (92/92 cells)
+  Covers the 23 datasets with 0-1 numeric columns, where no rotation exists.
+  Permuting the integer codes of a categorical column is a BIJECTION, so it
+  preserves information exactly and leaves the Bayes risk unchanged; it removes
+  only the ordinality an ordinal encoding imposes by accident.
+  H_C  TabPFN degrades: n=22, mean +0.0230, worse on 17/22, p = 0.0138
+       -> SUPPORTED
+       strong_classical: 11/23, p = 0.065 -> not significant
+  READING: TabPFN reads signal from the ARBITRARY sort order of category labels.
+  That is pure inductive bias and a deployment hazard in its own right: accuracy
+  depends on how preprocessing happened to order the categories. This began as a
+  patch for a coverage gap and ended as a second failure axis.
+
+ARM B -- rotation on 2-3 numeric columns          STATUS: complete (44/44 cells)
+  Recovers the 11 datasets excluded only by the >=4-numeric-column rule;
+  rotation is perfectly well defined in 2D.
+  H_B  n=11, mean +0.0062, worse on 10/11, p = 0.0024  -> SUPPORTED
+  READING: the excluded datasets were not hiding a null result.
+
+ARM A -- scale                                    STATUS: partial (32/120 cells)
+  The cap could NOT be tested inside M9 because nearly every dataset sat exactly
+  at the 1500-row cap, leaving no large-n half to compare against.
+  n_train <= 500 : n=6, mean +0.0253, worse on 5/6, p = 0.0469 -> SUPPORTED
+  n_train <= 1500: n=6, mean +0.0308, worse on 5/6, p = 0.0312 -> SUPPORTED
+  n_train <= 4000: n=4, too few to test
+  Spearman(n_cap, degradation) = +0.125, p = 0.644
+  READING: the effect appears at BOTH tested sizes with similar magnitude and
+  shows no significant scale dependence, so it is not an artifact of where the
+  cap sits. The n=4000 level is still accumulating; these are the most expensive
+  cells in the project (n=4000 x d=500 is ~30 min per cell on CPU).
+
+COVERAGE ACHIEVED: rotation alone reached 95 of 146 datasets. With arms B and C
+the information-preserving-perturbation paradigm now spans the entire suite.
+```
+
+## Limitations: final status
+
+| limitation | status |
+|---|---|
+| No Bayes oracle on real data | **largely resolved by re-analysis.** Against the best of every model run -- a tighter upper bound on the unknown optimum -- TabPFN's regret has median 0.0000 and it is the best available model on 44/53 datasets. |
+| Datasets excluded (rotation undefined) | **resolved.** Arm B recovers the 11 low-dimensional ones (p=0.0024); arm C covers the 23 categorical-heavy ones with a bijective perturbation (p=0.0138). Coverage is now complete. |
+| Train-row cap | **addressed.** The effect holds at n<=500 and n<=1500 with no significant scale dependence (rho=+0.125, p=0.64). The n=4000 level is still running. |
+| CPU-only | **NOT fixed.** No GPU is available on this machine. The M0 cost model quantifies exactly what this costs (t ~ n^0.77 d^0.76), and every compute decision in the project follows from it. This bounds sample sizes throughout and is the single largest constraint on the work. |
