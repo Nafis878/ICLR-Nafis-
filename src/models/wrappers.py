@@ -128,15 +128,50 @@ def fit_mlp(Xtr, ytr, Xte, n_classes, cfg, seed):
     return clf.predict_proba(Xte), {"model": "mlp", "best_params": best, "cv_score": score}
 
 
+def fit_xgboost(Xtr, ytr, Xte, n_classes, cfg, seed):
+    """Gradient boosting, second family. Listed as a core dep in the spec and
+    previously unused -- adding it widens the best-of ensemble rather than merely
+    deepening one search."""
+    from xgboost import XGBClassifier
+
+    Xtr, Xte = _impute(Xtr, Xte)
+    fn = lambda p, s: XGBClassifier(  # noqa: E731
+        **p, n_jobs=1, random_state=s, tree_method="hist",
+        verbosity=0, eval_metric="mlogloss",
+    )
+    best, score = _random_search(
+        fn, cfg["search_space"], Xtr, ytr, cfg["n_random_configs"], cfg["cv_folds"], seed
+    )
+    clf = fn(best, seed).fit(Xtr, ytr)
+    return clf.predict_proba(Xte), {"model": "xgboost", "best_params": best, "cv_score": score}
+
+
+def fit_catboost(Xtr, ytr, Xte, n_classes, cfg, seed):
+    """Ordered-boosting family; often the strongest single tabular learner."""
+    from catboost import CatBoostClassifier
+
+    Xtr, Xte = _impute(Xtr, Xte)
+    fn = lambda p, s: CatBoostClassifier(  # noqa: E731
+        **p, random_seed=s, verbose=0, allow_writing_files=False, thread_count=1,
+    )
+    best, score = _random_search(
+        fn, cfg["search_space"], Xtr, ytr, cfg["n_random_configs"], cfg["cv_folds"], seed
+    )
+    clf = fn(best, seed).fit(Xtr, ytr)
+    return clf.predict_proba(Xte), {"model": "catboost", "best_params": best, "cv_score": score}
+
+
 MODELS = {
     "tabpfn": fit_tabpfn,
     "lightgbm": fit_lightgbm,
+    "xgboost": fit_xgboost,
+    "catboost": fit_catboost,
     "random_forest": fit_random_forest,
     "knn": fit_knn,
     "mlp": fit_mlp,
 }
 
-CLASSICAL = ["lightgbm", "random_forest", "knn", "mlp"]
+CLASSICAL = ["lightgbm", "xgboost", "catboost", "random_forest", "knn", "mlp"]
 
 
 def fit_model(name, Xtr, ytr, Xte, n_classes, cfg, seed):
