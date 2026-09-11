@@ -1,0 +1,21 @@
+{
+  "created_utc": "20260911T082940Z",
+  "type": "M9-REP PRE-REGISTRATION -- independent replication of H1/H3 on the 91 datasets never touched by any earlier milestone",
+  "why_this_is_not_optional_stopping": "The primary M9 test (n=38, commit e3f8aca) is COMPLETE and its result STANDS AS REPORTED: H1 p=1.35e-09 supported, H3 rho=+0.227 p=0.086 not significant. We are NOT adding datasets to that test and re-reading its p-value. The 91 datasets here were excluded at M5 by a seeded sample drawn for budget reasons, long before any outcome was seen, and no model has ever been run on them. They therefore form a clean independent sample, and H3-REP below is a FRESH test at its own alpha=0.05. We disclose plainly that this replication was motivated by the primary test being underpowered (3.1x short). The replication-set result is PRIMARY; any pooled estimate is reported as SECONDARY and descriptive only, never as the headline.",
+  "hypotheses": {
+    "H1-REP": "TabPFN test log-loss increases under rotation of the numeric block (paired one-sided Wilcoxon, alpha=0.05). Direction fixed by the primary result.",
+    "H3-REP": "rotation_alignment, computed on the UNROTATED training split, positively predicts the magnitude of TabPFN's degradation (Spearman > 0, one-sided, alpha=0.05). Direction fixed in advance by the primary point estimate (+0.227), so this is a directional confirmatory test."
+  },
+  "design": "identical to M9 in every respect: same split seed, same rotation rule (Haar-random orthogonal map on the standardized numeric block, train moments only), same >=4-numeric-column eligibility rule, same 1500-row caps, same 16-config tuning budget. Nothing about the procedure changes.",
+  "analysis_plan": {
+    "primary": "H1-REP and H3-REP on the replication set ALONE",
+    "secondary": "pooled estimate over primary + replication, reported descriptively with both n's stated; no pooled p-value is treated as confirmatory",
+    "no_outcome_dependent_choices": "tests, directions and alpha are fixed here"
+  },
+  "code_sha256": {
+    "src/experiments/m9_rotation_transfer.py": "0083f11279ee6e53464e996a838e705663e52cac73f21105226dba2243d4a750",
+    "src/experiments/m9_analyze.py": "c169e6b50a892a755d464cf59e7007fbc6f2e2b00d3557da35f0d50c8a84df13",
+    "src/stats/features.py": "ef28a806fa3ceb4fe02dce98e10f6890a279632d4be3c3b743fa6dc4945d3403"
+  },
+  "commit_hash": null
+}
