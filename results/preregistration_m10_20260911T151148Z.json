@@ -1,0 +1,29 @@
+{
+  "created_utc": "20260911T151148Z",
+  "type": "M10 PRE-REGISTRATION -- three robustness arms converting stated limitations into measurements",
+  "motivation": "Three limitations were reported honestly rather than fixed: (2) the train-row cap, (3) datasets excluded because rotation is undefined on categorical data, (4) no Bayes oracle on real data. (4) is now addressed by re-analysis (regret against best-of-all models, results/m7_regret_vs_best.csv, no new compute). (2) could NOT be tested within M9 because most datasets sit exactly at the 1500-row cap, leaving no large-n half.",
+  "arm_A_scale": {
+    "question": "Does the rotation effect depend on training-set size?",
+    "design": "rotation vs original at n_train in [500, 1500, 4000] on the 20 eligible datasets with the most rows; TabPFN only.",
+    "H_A": "The paired degradation stays positive at EVERY n level (Wilcoxon one-sided per level, alpha=0.05). A positive Spearman(n_train, degradation) would mean the cap UNDERSTATES the effect, a negative one that it overstates it; both are reportable, and the pre-registered claim is only that the effect survives at all three levels."
+  },
+  "arm_B_lowdim": {
+    "question": "Does the effect hold on the 11 datasets excluded only for having 2-3 numeric columns? Rotation is well defined in 2D.",
+    "design": "identical to M9 with the eligibility rule lowered to >=2 numeric columns. Reported as a SEPARATE sample, never merged into the M9 primary or replication.",
+    "H_B": "TabPFN degrades under rotation on these datasets (paired one-sided, alpha=0.05)."
+  },
+  "arm_C_categorical": {
+    "question": "23 datasets have 0-1 numeric columns, so no rotation exists. Is there an information-preserving perturbation for them?",
+    "design": "randomly PERMUTE the integer codes of every categorical column. A relabelling is a bijection, so it preserves information exactly and leaves Bayes risk unchanged -- the categorical analogue of rotation. It destroys only the ORDINAL structure an ordinal encoding accidentally imposes.",
+    "H_C": "TabPFN's log-loss increases under code permutation (paired one-sided, alpha=0.05). This tests whether TabPFN exploits the arbitrary ordinality of ordinal-encoded categoricals, which would be a deployment-relevant bias in its own right."
+  },
+  "analysis_plan": [
+    "each arm reported separately with its own n",
+    "no arm is pooled into the M9 primary or replication results",
+    "directions and alpha are fixed here"
+  ],
+  "code_sha256": {
+    "src/experiments/m9_rotation_transfer.py": "0083f11279ee6e53464e996a838e705663e52cac73f21105226dba2243d4a750"
+  },
+  "commit_hash": null
+}
