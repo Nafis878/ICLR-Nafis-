@@ -278,3 +278,56 @@ The paper's headline is not "we can predict TabPFN failures". It is:
 - `scm_prior_control` is a restricted reimplementation of TabPFN's prior.
 - The frozen eval policy subsamples training to 4000 rows, which neutralises the
   out-of-range set as "easy positives".
+
+---
+
+```
+MILESTONE: M9 (paired rotation-transfer probe)  -- pre-registered at e3f8aca
+STATUS: complete at 20/39 eligible datasets (run continuing on the remaining
+  high-dimensional cells; 16 of 55 datasets have <4 numeric columns, where an
+  orthogonal rotation is undefined, and are excluded by the pre-registered rule)
+WHY IT EXISTS: M7's negative result was not a result. With 9 positives the
+  bootstrap 95% CI on AUROC was [0.133, 0.579] -- it contains chance, and
+  detecting AUROC 0.70 at a 17% base rate would need ~381 datasets. The question
+  had to be re-posed, not merely re-run on more data.
+DESIGN: each dataset measured twice on the SAME split, original vs a Haar-random
+  rotation of its standardized numeric block. Paired (between-dataset variance
+  cancels), effect induced rather than awaited, target continuous. Baseline
+  tuning budget doubled to 16 configs.
+KEY NUMBERS:
+  H1  TabPFN log-loss INCREASES under rotation
+        mean +0.0239, median +0.0135, worse on 16/19 datasets
+        Wilcoxon one-sided p = 1.3e-04            -> SUPPORTED
+  H2  strong_classical degrades MORE than TabPFN
+        excess (sc - tabpfn) mean -0.0031, p = 0.51 -> NOT SUPPORTED
+  H3  rotation_alignment predicts WHICH datasets degrade
+        Spearman +0.046, bootstrap 95% CI [-0.478, +0.544] -> NOT SUPPORTED
+SURPRISES:
+  - H1 is the transfer result the project needed: the rotation axis recovered
+    from the synthetic prior (0.158 -> 0.360 at constant Bayes risk) reproduces
+    on real datasets at p = 1.3e-04. The recovered prior does describe TabPFN's
+    behaviour out of distribution -- as a POPULATION effect.
+  - H2 was predicted from the synthetic probe, where strong_classical degraded
+    MORE (0.143 -> 0.453 vs 0.158 -> 0.360). On real data the asymmetry vanishes:
+    both degrade about equally. The synthetic tree-favourable families
+    exaggerated the classical ensemble's axis dependence.
+  - H3 fails even though the target now has real variance (deltas to 0.139) and
+    the design is paired. Together with M7 this is the paper's sharpest claim:
+    the recovered axis generalises as a POPULATION effect but NOT as a
+    PER-DATASET prediction. Two independent, differently-posed tests now say the
+    per-instance claim does not hold.
+NEXT: none; this closes the prospective-validation arc.
+BLOCKERS / DECISIONS NEEDED: none.
+```
+
+## Revised headline claim
+
+Not "we can predict which datasets TabPFN fails on" -- two properly posed tests
+say we cannot. The defensible claim is narrower and better supported:
+
+> The effective prior of a PFN can be recovered quantitatively against exact
+> Bayes oracles; the failure axes it reveals transfer to real data as population
+> effects (rotation: p = 1.3e-04); but they do not confer per-dataset
+> predictive power, and a black-box meta-feature model with access to the real
+> outcomes does no better. Per-instance routing of tabular foundation models
+> remains unsolved, and we give the power analysis that says why.
