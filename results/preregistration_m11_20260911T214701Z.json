@@ -30,5 +30,5 @@
     "tests/test_dgp.py": "c63415b0383343d1be7bc89fb301c501c78d4e3fb39b09b9ee7c3e5557b8f813",
     "src/stats/features.py": "ef28a806fa3ceb4fe02dce98e10f6890a279632d4be3c3b743fa6dc4945d3403"
   },
-  "commit_hash": null
+  "commit_hash": "18552a470698519c8e024203ccc793c97e168c94"
 }
