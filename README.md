@@ -1,84 +1,138 @@
-# Out of Prior — predicting TabPFN failures from its recovered prior
+# Out of Prior
 
-Implementation of [RESEARCH_SPEC.md](RESEARCH_SPEC.md).
+**Auditing tabular foundation models with information-preserving perturbations.**
 
-## Subject of study
+Subject of study: **TabPFN v2** (`tabpfn==2.2.1`, `Prior-Labs/TabPFN-v2-clf`, Nature 2025),
+with a cross-generation arm on **TabPFN v1** (ICLR 2023). CPU-only throughout.
 
-`tabpfn==2.2.1`, the last release of the 2.x line, which serves
-`Prior-Labs/TabPFN-v2-clf` — the Nature 2025 **TabPFN v2** model. This matters:
-the package has since moved to 6.x (`tabpfn_2_5`), 7.x (`tabpfn_2_6`) and 8.x
-(`tabpfn_3`), whose priors are not published. The project's premise is that we
-know the designed prior, so only v2 qualifies. The pin forces `scikit-learn<1.7`.
+---
 
-CPU-only by construction: `torch==2.7.1+cpu`, `CUDA_VISIBLE_DEVICES=""`, and an
-import-time assertion in [src/env.py](src/env.py) that no GPU path is reachable.
+## The problem
 
-## Layout
+Tabular foundation models are evaluated by comparing them to *other models*. That tells
+you who wins a horse race; it cannot tell you **what the model's prior actually encodes**,
+or **when that prior stops applying**.
+
+The obstacle is that on real data you never know the optimum, so "the model did worse"
+and "the task got harder" are indistinguishable.
+
+## The method
+
+Two ideas, combined:
+
+**1. Measure regret against a computable optimum.** We build data-generating processes
+whose Bayes-optimal posterior is known *exactly and pointwise*, so every number reported
+is `logloss(model) - logloss(Bayes)`. No oracle, no claim.
+
+**2. Perturb the data in ways that provably preserve information.** Rotating the
+standardised numeric block is an orthogonal map; permuting categorical codes is a
+bijection. Both leave the Bayes risk **mathematically unchanged** - verified to five
+decimal places in our probes.
+
+> This is the lever. Because the perturbation cannot destroy information, **any**
+> degradation is inductive bias, full stop. Prior work measured accuracy drops under
+> rotation without an oracle and could not separate the two.
+
+The audit then asks three questions of any tabular model: *does the perturbation hurt it,
+by how much, and can we predict which datasets it will hurt?*
+
+## What we found
+
+| # | finding | evidence |
+|---|---|---|
+| 1 | **Axis-dependence is real and large** on real data | rotation degrades TabPFN v2 on **86/95** datasets, **p = 7.7e-16** |
+| 2 | **It is getting WORSE across generations** | relative degradation **+4.9% (v1) to +11.3% (v2)**, paired **p = 1.0e-05** |
+| 3 | **It survives the model's full operating range** | holds at n = 500, 2000 and **10000** - TabPFN v2's stated ceiling (12/13, p = 2.4e-04) |
+| 4 | **A cheap statistic predicts *which* datasets suffer** | rho = **+0.530**, p = 1.1e-05 on a **pre-registered independent replication** (57 unseen datasets); pooled rho = +0.409 |
+| 5 | **A second axis: categorical ordinality** | permuting category codes degrades TabPFN on 17/22 datasets (p = 0.014), and **persists when categoricals are correctly declared** (15/22, p = 0.027) |
+| 6 | **The in-prior anchor survives latent confounding** | a *discrete* latent gives genuine confounding **and** an exact oracle; regret 0.021 to 0.065 (p = 0.004), still far below out-of-prior levels (~0.29) |
+| 7 | **Open-ended failure routing does NOT work - and the field may not know it** | AUROC 0.343, 95% CI **[0.133, 0.579]**; detecting AUROC 0.70 at the observed base rate needs **~381 datasets**, where the literature uses ~50 |
+| 8 | **Baseline strength materially changes the story** | best-of-6 with 165 configs nearly doubles TabPFN's loss rate, **18% to 31%** |
+
+Finding 2 is the headline: **newer TabPFN is more axis-dependent than older TabPFN**, not
+less. The diagnostic matters more for current models, not less.
+
+Finding 7 is deliberately kept. The original thesis of this project - predict which
+datasets a foundation model will lose on - **failed**, and the power analysis says prior
+negatives in this area may be underpowered rather than conclusive. That is reported, not
+buried.
+
+## The direction for ICLR
+
+**One direction: a diagnostic framework, headlined by the generational trend.**
+
+Not "TabPFN is not rotation invariant" - Grinsztajn et al. (2022) established that axis
+for tabular models, and we cite them as its source. What is new is:
+
+1. measuring it as **regret against an exact oracle**, so degradation is *provably*
+   inductive bias rather than lost information;
+2. showing the bias **intensifies across model generations**;
+3. a **replicated** statistic that predicts which datasets suffer;
+4. the **power analysis** that reframes the field's existing negative results.
+
+The framework is reusable: any new tabular foundation model can be dropped into the same
+paired probe. See [PAPER_OUTLINE.md](PAPER_OUTLINE.md) for the full argument and
+positioning against related work.
+
+**To finish:** the TabPFN-3 arm, which turns the two-point generational trend into three.
+The runner is built and tested ([scripts/TABPFN3_HANDOFF.md](scripts/TABPFN3_HANDOFF.md));
+only execution is outstanding, because post-v2 weights require accepting a non-commercial
+licence.
+
+## Method integrity
+
+- **8 pre-registrations**, each committing hypotheses *and directions* to git before the
+  first cell ran; `m7_validate.py` refuses to score a prediction set whose commit is not
+  in the repo.
+- **Failures are recorded, never dropped** - every cell is cached with status, config and
+  traceback.
+- Everything is **resumable** and keyed by a hash of its config.
+- **55 property tests**, including the one that matters most: the latent-confounded oracle
+  is validated by *calibration*, which a wrong marginalisation would fail even though it
+  would pass a self-consistency check.
+
+Pre-registration caught things a post-hoc analysis would have buried: a score that
+extrapolated 571x beyond its support and emitted predictions of 242.6; an interim
+correlation of +0.350 (p = 0.043) that **did not survive full coverage** and was withdrawn;
+a baseline comparison that flipped sign between partial and complete data; and a confound
+in our own wrapper, disclosed and resolved as a 2x2 rather than quietly fixed.
+
+## Honest limits
+
+- **CPU-only.** No GPU. The cost model `t ~ n^0.77 * d^0.76` bounds every sizing decision.
+  The evaluation does reach TabPFN v2's stated 10000-row ceiling.
+- **TabPFN-3 untested.** Post-v2 weights sit behind a licence-acceptance step, so
+  independent auditing of current TabPFN models carries a licence barrier - itself worth
+  stating.
+- **Real-data regret is a proxy** (gap vs best available; no oracle exists there). Against
+  best-of-all-models, TabPFN's median regret is 0.0000 and it is the best model on 44/53.
+- Rotation is undefined on categorical-only data; the categorical arm covers exactly those.
+
+## Scale
+
+**102 core-hours | 2691 experiment cells | 8 pre-registrations | 55 tests | 11 figures**
+
+## Repository map
 
 ```
-configs/     one YAML per milestone; no hyperparameters live in code
-src/dgp/     data-generating processes + composable nuisance modifiers
-src/oracles/ Bayes regret metric with error bars
-src/stats/   the fixed observable-statistic vector (the OOP feature set)
-src/models/  TabPFN + baseline wrappers behind one interface
-src/runner.py cached, parallel, resumable experiment loop
-src/analysis/ collection, OOP score, figures
-results/     parquet + json (cache/ is gitignored, summaries are tracked)
-tests/       property tests (determinism, Bayes-oracle verification)
+src/dgp/          synthetic families with exact Bayes oracles (+ nuisance modifiers)
+src/oracles/      Bayes-regret metric with error bars
+src/stats/        the observable-statistic vector (the OOP feature set)
+src/models/       TabPFN + best-of-6 classical baselines, one interface
+src/runner.py     cached, parallel, resumable experiment loop
+src/experiments/  m0..m15, one milestone per file
+results/          CHECKPOINTS.md (full lab notebook), pre-registrations, parquet/CSV
+figures/          11 figures
 ```
 
-## Running
+### Running it
 
 ```bash
 .venv/Scripts/python.exe -m pytest tests/ -q
-.venv/Scripts/python.exe src/experiments/m0_budget.py 4      # budget probe
-.venv/Scripts/python.exe src/experiments/m0_report.py
-.venv/Scripts/python.exe src/experiments/m2_sanity.py 3      # in-prior anchor
-.venv/Scripts/python.exe src/experiments/m3_sweep.py 7       # prior recovery
-.venv/Scripts/python.exe src/experiments/m4_fit_score.py     # OOP score
-.venv/Scripts/python.exe src/experiments/m5_real_datasets.py 4
-.venv/Scripts/python.exe src/experiments/m6_preregister.py   # FREEZE, then stop
-# only after go-ahead:
-.venv/Scripts/python.exe src/experiments/m7_validate.py 6
-.venv/Scripts/python.exe src/experiments/m8_baselines.py
+.venv/Scripts/python.exe src/experiments/m0_budget.py 4
+.venv/Scripts/python.exe src/experiments/m9_rotation_transfer.py 4
+.venv/Scripts/python.exe src/experiments/m14_analyze.py
 ```
 
-Everything is cached by a hash of its config, so any run resumes where it
-stopped. Failures are written to the cache as rows with `status != "ok"`; they
-are never dropped, because silent exclusion is how fake results happen.
-
-## Two corrections to the spec, both made before the M6 freeze
-
-**1. The rotation-alignment statistic as specified is vacuous.** The spec defines
-it as kNN label agreement in the original basis divided by agreement under random
-rotation. Euclidean kNN is *exactly* rotation invariant — an orthogonal map is an
-isometry, so it preserves every pairwise distance and therefore every neighbour
-set. Measured directly, rotating X changed pairwise distances by 2.7e-15 and left
-the agreement bit-identical, so the ratio is identically 1.0 on every dataset.
-The statistic is rebased on a depth-limited **axis-aligned decision tree**, which
-is genuinely rotation-sensitive (0.869 → 0.788 on the same data) and matches the
-Grinsztajn et al. notion of rotation non-invariance. It now separates
-`piecewise_constant` (1.293) from its rotated twin (1.004). See
-[src/stats/features.py](src/stats/features.py).
-
-**2. Exact Bayes posteriors for the "Monte Carlo" families.** The spec assumed
-`piecewise_constant`, `gp_smooth`, `high_frequency` and friends have no
-closed-form Bayes predictor. Generating the label from a known conditional law
-(`y ~ Categorical(f(x))` with `f` fixed by a structural seed) makes the Bayes
-posterior exactly `f`, pointwise. Monte Carlo is then needed only for the Bayes
-*risk*, which is what the spec asked to estimate anyway. This removes Monte Carlo
-error from the reference point of the regret metric.
-
-## Known limitations
-
-- **`scm_prior_control` is a restricted reimplementation.** Its label node reads
-  only observed features, which d-separates `y` from the latent nodes and buys an
-  exact Bayes oracle. The real prior allows latent confounding. Near-zero regret
-  here certifies the measurement pipeline, not that TabPFN's prior was reproduced.
-- **Missingness and categorical discretization destroy the exact oracle**, so
-  they are excluded from the Bayes-regret sweep and flagged
-  (`preserves_bayes=False` in [src/dgp/modifiers.py](src/dgp/modifiers.py)).
-- **M7 has no Bayes oracle.** "Actual regret" there is the proxy
-  `logloss(TabPFN) − logloss(strong_classical)`, a comparison against a strong
-  baseline rather than against the true optimum.
-- Classification only; the optional regression arm is not implemented.
+The full milestone-by-milestone record, including every surprise and correction, is in
+[results/CHECKPOINTS.md](results/CHECKPOINTS.md).
