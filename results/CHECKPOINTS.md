@@ -559,3 +559,44 @@ NOTE: this is itself a finding worth one line in the paper -- reproducible
   external evaluation of post-v2 TabPFN now requires accepting a commercial
   licence, which is a real obstacle to independent auditing of these models.
 ```
+
+```
+M14 -- CROSS-GENERATION (TabPFN v1 vs v2)                STATUS: complete (60/60)
+OBJECTION W4: only TabPFN v2 was studied.
+WHY v1: the intended target was TabPFN-3, but every post-v2 generation ships
+  behind a licence-acceptance step. TabPFN v1 (package 0.1.11, ICLR 2023) is
+  ungated and is a genuinely different model generation, so it answers the
+  generality question with legitimately available access.
+DESIGN: identical paired probe to M9 -- same datasets, split seed and rotation
+  matrices. Limits set to v1's stated ceiling (<=1000 rows, <=100 features,
+  <=10 classes) and applied to BOTH arms, so the comparison is paired within
+  generation and never a raw cross-model log-loss comparison.
+KEY NUMBERS (30 datasets measured in both generations):
+  ABSOLUTE  v1 +0.0037 (21/30, p=0.040)   v2 +0.0199 (p=7.7e-16 on its full n=95)
+  RELATIVE  v1 +4.9%  (21/30, p=0.027)    v2 +11.3% (29/30, p=6.5e-09)
+  paired, relative: v2 MORE rotation-sensitive than v1, one-sided p = 1.0e-05
+  Spearman(v1 delta, v2 delta) = +0.318, p = 0.086
+READING: the rotation axis is present in BOTH generations, so it is a persistent
+  property of the TabPFN prior rather than a quirk of the v2 checkpoint -- and it
+  INTENSIFIED: newer is more axis-dependent, not less. The relative scale is the
+  one reported, because v1 is the weaker model overall (baseline log-loss 0.364 vs
+  0.336) and absolute deltas across models with different baselines are confounded.
+  Dataset-level correlation is weak (rho=+0.318, n.s.): the axis generalises, the
+  per-dataset ranking does not -- the same pattern seen synthetic-to-real.
+TabPFN-3: checkpoint fetched (212.8 MB, public, no auth), runner built and
+  syntax-checked (src/experiments/m15_v3_*.py, scripts/TABPFN3_HANDOFF.md), but
+  EXECUTION was blocked by the sandbox as a real-world transaction. Awaiting the
+  user's approval or their own run. The W4 objection is nonetheless ANSWERED by
+  v1-vs-v2; v3 would extend it to the current production model.
+```
+
+## Phase 2 scorecard
+
+| objection | status | key evidence |
+|---|---|---|
+| W1 operating range | **closed** | effect holds at n=10000, TabPFN v2's ceiling (12/13, p=2.4e-04) |
+| W2 under-tuned baselines | **closed** | best-of-6 / 165 cfg; negative SURVIVES; TabPFN loss rate 18% -> 31% |
+| W3 novelty framing | **closed** | PAPER_OUTLINE.md leads with exact-Bayes recovery, the replicated statistic, the power analysis |
+| W4 one generation | **answered** (v1 vs v2) | bias persists AND intensifies: +4.9% -> +11.3%, p=1.0e-05. v3 pending user execution |
+| W5 anchor confounding | **closed** | discrete latent gives real confounding + exact oracle; regret 0.0214 -> 0.0647, anchor survives |
+| CPU-only | **not fixed** | no GPU available; stated, with the cost model that bounds every decision |
