@@ -6,3 +6,4 @@ results/cache/
 .pytest_cache/
 *.log
 .venv-tabpfn1/
+.venv-tabpfn3/
