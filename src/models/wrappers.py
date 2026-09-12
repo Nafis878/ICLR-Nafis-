@@ -55,14 +55,25 @@ def _random_search(estimator_fn, space, Xtr, ytr, n_configs, cv_folds, seed):
 def fit_tabpfn(Xtr, ytr, Xte, n_classes, cfg, seed):
     from tabpfn import TabPFNClassifier
 
+    kw = {}
+    # TabPFN v2 accepts categorical_features_indices. Leaving it unset means
+    # ordinal-encoded categoricals are treated as ordered numbers, which is a
+    # real deployment default but NOT the same as the model's intended handling.
+    # Passing it explicitly is what separates a model property from a
+    # preprocessing artefact (M10 arm C).
+    cat_idx = cfg.get("categorical_features_indices")
+    if cat_idx is not None:
+        kw["categorical_features_indices"] = list(cat_idx)
     clf = TabPFNClassifier(
         device=cfg.get("device", "cpu"),
         n_estimators=cfg.get("n_estimators", 4),
         random_state=seed,
         ignore_pretraining_limits=cfg.get("ignore_pretraining_limits", True),
+        **kw,
     )
     clf.fit(Xtr, ytr)
-    return clf.predict_proba(Xte), {"model": "tabpfn"}
+    return clf.predict_proba(Xte), {"model": "tabpfn",
+                                    "categoricals_declared": cat_idx is not None}
 
 
 def fit_lightgbm(Xtr, ytr, Xte, n_classes, cfg, seed):
