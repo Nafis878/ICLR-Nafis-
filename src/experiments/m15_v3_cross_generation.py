@@ -66,10 +66,35 @@ def run_one(cfg: dict) -> dict:
             "n_numeric": int(mask.sum()), "generation": "v3"}
 
 
+LICENCE_HELP = """
+TabPFN-3 requires a licence acceptance that this project cannot perform for you.
+
+tabpfn 8.5.0 gates weight loading on ensure_license_accepted(), which needs a
+Prior Labs ACCOUNT and a vendor-issued API key -- not HuggingFace auth, and not
+merely having the checkpoint on disk.
+
+  1. https://ux.priorlabs.ai            log in or register
+  2. Licenses tab                       accept the TABPFN-3 Non-Commercial License
+  3. https://ux.priorlabs.ai/account    copy your API key
+  4. set TABPFN_TOKEN to it, then re-run this script in the same shell
+
+Full detail: scripts/TABPFN3_HANDOFF.md
+"""
+
+
+def preflight_licence() -> None:
+    """Fail in seconds with actionable instructions, not after loading datasets."""
+    import os
+
+    if not os.environ.get("TABPFN_TOKEN", "").strip():
+        raise SystemExit(LICENCE_HELP)
+
+
 def main() -> None:
     env.preflight()
     assert Path(V3_PY).exists(), (
         "TabPFN-3 venv missing -- see scripts/TABPFN3_HANDOFF.md")
+    preflight_licence()
     m5cfg = runner.load_config("configs/m5_real_datasets.yaml")
 
     a = pd.read_parquet("results/m5b_real_statistics_evalpolicy.parquet")

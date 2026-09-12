@@ -597,6 +597,52 @@ TabPFN-3: checkpoint fetched (212.8 MB, public, no auth), runner built and
 | W1 operating range | **closed** | effect holds at n=10000, TabPFN v2's ceiling (12/13, p=2.4e-04) |
 | W2 under-tuned baselines | **closed** | best-of-6 / 165 cfg; negative SURVIVES; TabPFN loss rate 18% -> 31% |
 | W3 novelty framing | **closed** | PAPER_OUTLINE.md leads with exact-Bayes recovery, the replicated statistic, the power analysis |
-| W4 one generation | **answered** (v1 vs v2) | bias persists AND intensifies: +4.9% -> +11.3%, p=1.0e-05. v3 pending user execution |
+| W4 one generation | **answered** (v1 vs v2) | bias persists AND intensifies: +4.9% -> +11.3%, p=1.0e-05. v3 blocked at a vendor credential gate, see M15 |
 | W5 anchor confounding | **closed** | discrete latent gives real confounding + exact oracle; regret 0.0214 -> 0.0647, anchor survives |
 | CPU-only | **not fixed** | no GPU available; stated, with the cost model that bounds every decision |
+
+---
+
+```
+M15 -- TabPFN-3 ARM                            STATUS: blocked at the licence gate
+GOAL: turn the two-point generational trend (v1 -> v2) into three points.
+WHAT RAN: the worker was executed end-to-end on a synthetic smoke problem once the
+  sandbox permission rule was added (.claude/settings.json). The sandbox is NO
+  LONGER the blocker -- the code ran and reached model loading.
+RESULT: tabpfn.errors.TabPFNLicenseError, raised from
+  model_loading._download_model -> browser_auth.ensure_license_accepted.
+
+CORRECTION to the M14 entry above. It records the checkpoint as "public, no auth"
+  and execution as "blocked by the sandbox". Both were wrong, and reading
+  tabpfn/browser_auth.py settles it. The gate is satisfied by NONE of:
+    - having the checkpoint already on disk. We do: 212,804,803 bytes at
+      ~/.cache/huggingface/hub/models--Prior-Labs--tabpfn_3/snapshots/24a16a89/
+      tabpfn-v3-classifier-v3_default.ckpt, fetched directly via huggingface_hub.
+    - the repo being ungated. It is: Prior-Labs/tabpfn_3 reports gated=False.
+    - HuggingFace authentication. Irrelevant; a different system entirely.
+  What it actually requires: a Prior Labs ACCOUNT, licence acceptance recorded
+  against that account, and a vendor-issued API key in TABPFN_TOKEN which the
+  package re-verifies against a Prior Labs SERVER on every cold start
+  (verify_token -> check_license_accepted, both live HTTP calls).
+
+WHY NOT WORKED AROUND: the checkpoint on disk could be copied to the path tabpfn
+  probes before _download_model runs. That would route around the licence
+  acceptance mechanism rather than satisfy it. Acceptance is a legal act by an
+  account holder and is not delegable to the agent running the experiments, so the
+  gate was left intact and the arm left unrun. Recorded, not hidden.
+
+MITIGATION SHIPPED: m15_v3_cross_generation.py now preflights TABPFN_TOKEN and
+  exits in ~2 s with the four-step acceptance instructions, instead of loading
+  datasets first and failing per-cell. scripts/TABPFN3_HANDOFF.md rewritten with
+  the verified mechanism (its earlier "huggingface-cli login" advice was wrong).
+
+STATUS OF THE OBJECTION: W4 remains ANSWERED by v1-vs-v2 (paired, relative,
+  p = 1.0e-05). v3 is additive, not load-bearing.
+
+FOR THE PAPER: this is a reportable barrier, not just an inconvenience. Auditing
+  a post-v2 tabular foundation model requires a credential the vendor issues, can
+  revoke, and observes in use -- the vendor is pinged at model-load time, so
+  third-party evaluation is neither anonymous nor independently reproducible from
+  weights alone. Stronger than a click-through licence, and worth one paragraph in
+  the limitations of any external audit of these models.
+```

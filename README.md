@@ -74,10 +74,10 @@ The framework is reusable: any new tabular foundation model can be dropped into 
 paired probe. See [PAPER_OUTLINE.md](PAPER_OUTLINE.md) for the full argument and
 positioning against related work.
 
-**To finish:** the TabPFN-3 arm, which turns the two-point generational trend into three.
-The runner is built and tested ([scripts/TABPFN3_HANDOFF.md](scripts/TABPFN3_HANDOFF.md));
-only execution is outstanding, because post-v2 weights require accepting a non-commercial
-licence.
+**To finish:** the TabPFN-3 arm, which turns the two-point generational trend into
+three. The runner is built and tested end-to-end
+([scripts/TABPFN3_HANDOFF.md](scripts/TABPFN3_HANDOFF.md)); what remains is not
+engineering but *credentialing* - see the limit below.
 
 ## Method integrity
 
@@ -101,9 +101,17 @@ in our own wrapper, disclosed and resolved as a 2x2 rather than quietly fixed.
 
 - **CPU-only.** No GPU. The cost model `t ~ n^0.77 * d^0.76` bounds every sizing decision.
   The evaluation does reach TabPFN v2's stated 10000-row ceiling.
-- **TabPFN-3 untested.** Post-v2 weights sit behind a licence-acceptance step, so
-  independent auditing of current TabPFN models carries a licence barrier - itself worth
-  stating.
+- **TabPFN-3 untested, and the reason is itself a finding.** We ran the v3 arm and
+  captured the gate. `tabpfn==8.5.0` blocks weight loading on `ensure_license_accepted()`,
+  which is satisfied by none of: having the 203 MB checkpoint already on disk (we do),
+  the HF repo being ungated (`Prior-Labs/tabpfn_3` reports `gated=False`), or HuggingFace
+  authentication. It requires a **Prior Labs account**, licence acceptance on that
+  account, and a **vendor-issued API key** that the package **re-verifies against a Prior
+  Labs server at every cold start**. Independent auditing of post-v2 TabPFN therefore
+  depends on a credential the vendor issues, can revoke, and observes in use. We report
+  this as a reproducibility barrier for third-party evaluation of tabular foundation
+  models, not as a complaint: the v1-to-v2 trend already answers the cross-generation
+  question, and v3 would strengthen it rather than carry it.
 - **Real-data regret is a proxy** (gap vs best available; no oracle exists there). Against
   best-of-all-models, TabPFN's median regret is 0.0000 and it is the best model on 44/53.
 - Rotation is undefined on categorical-only data; the categorical arm covers exactly those.

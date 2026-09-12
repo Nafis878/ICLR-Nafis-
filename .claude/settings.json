@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe src/experiments/m15_v3_cross_generation.py*)",
+      "Bash(.venv-tabpfn3/Scripts/python.exe src/experiments/m15_v3_worker.py*)"
+    ]
+  }
+}
