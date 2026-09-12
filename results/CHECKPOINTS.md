@@ -452,3 +452,110 @@ the information-preserving-perturbation paradigm now spans the entire suite.
 | Datasets excluded (rotation undefined) | **resolved.** Arm B recovers the 11 low-dimensional ones (p=0.0024); arm C covers the 23 categorical-heavy ones with a bijective perturbation (p=0.0138). Coverage is now complete. |
 | Train-row cap | **addressed.** The effect holds at n<=500 and n<=1500 with no significant scale dependence (rho=+0.125, p=0.64). The n=4000 level is still running. |
 | CPU-only | **NOT fixed.** No GPU is available on this machine. The M0 cost model quantifies exactly what this costs (t ~ n^0.77 d^0.76), and every compute decision in the project follows from it. This bounds sample sizes throughout and is the single largest constraint on the work. |
+
+---
+
+# Phase 2 — closing the five reviewer objections (pre-registered 18552a4)
+
+```
+W5 -- LATENT CONFOUNDING IN THE IN-PRIOR ANCHOR          STATUS: complete
+OBJECTION: scm_prior_control restricts the label to observed nodes, so the anchor
+  lacks the latent confounding present in TabPFN's real prior.
+FIX: scm_latent_confounded. A DISCRETE latent Z drives both the feature
+  distribution and the decision rule, so p(y|x) = sum_z p(y|x,z) p(z|x) is an
+  exact finite sum -- genuine confounding AND an exact oracle, no MC error.
+  Correctness is established by CALIBRATION (non-circular: a wrong marginalisation,
+  e.g. using p(z) instead of p(z|x), breaks it), plus a test that marginalising
+  beats ignoring the latent, plus a monotonicity test on the confounding axis.
+KEY NUMBERS (n_train=800, 5 seeds, matched d and n_classes):
+  TabPFN regret   restricted +0.0214 (sd 0.0054)   confounded +0.0647 (sd 0.0107)
+  strong_classical           +0.0749                          +0.1116
+  difference +0.0434, Mann-Whitney one-sided p = 0.0040
+READING: the anchor SURVIVES -- 0.065 is far below the out-of-prior families
+  (~0.29) and TabPFN still beats the classical ensemble. But confounding costs it
+  a significant 3x, so the restricted anchor was OPTIMISTIC by about 3x and
+  latent confounding is itself a mild out-of-prior axis. The limitation is now
+  quantified rather than asserted away.
+```
+
+```
+W1 -- OPERATING RANGE / TRAIN-ROW CAP                    STATUS: complete (78/78)
+OBJECTION: n was capped at 1500-4000 while TabPFN v2 is rated to ~10k rows.
+FIX: paired rotation probe at n_train in {500, 2000, 10000} on 13 low-dimensional
+  datasets with enough rows. Feasible because cost is n^0.77 d^0.76, so low-d
+  datasets make n=10000 affordable. n=10000 IS TabPFN v2's stated ceiling.
+KEY NUMBERS:
+  n<=  500: n=12  mean +0.0222  worse on 10/12  p = 0.0024   -> SUPPORTED
+  n<= 2000: n=13  mean +0.0349  worse on 13/13  p = 0.00012  -> SUPPORTED
+  n<=10000: n=13  mean +0.0385  worse on 12/13  p = 0.00024  -> SUPPORTED
+  Spearman(n_train, degradation) = +0.175, p = 0.293
+READING: the effect SURVIVES at TabPFN's stated ceiling, which is the
+  pre-registered claim and answers the objection. Scale dependence is NOT
+  established. An interim read at 9 datasets gave +0.350 (p=0.043) and was
+  reported as significant; that did NOT survive full coverage and is withdrawn.
+  This is the second interim-to-final flip in the project.
+SURPRISE: the M0 cost model underestimated n=10000 cells by 3.3x (978 s actual vs
+  ~300 s predicted) because it was fitted on n<=2000. Same extrapolation failure
+  mode as the OOP score's -- a model fitted on a narrow support fails outside it.
+```
+
+```
+ARM-C CONFOUND FIX (self-identified defect)              STATUS: complete (46/46)
+DEFECT: M10 arm C permuted categorical codes but never passed
+  categorical_features_indices, so TabPFN saw ordinal codes as plain numbers. The
+  original result was therefore about a preprocessing DEFAULT, not the model.
+FIX: ran the missing half of a 2x2 -- {declared, undeclared} x {original, permuted}.
+KEY NUMBERS:
+  undeclared  n=22  mean +0.0230  worse on 17/22  p = 0.0138  -> SUPPORTED
+  declared    n=22  mean +0.0188  worse on 15/22  p = 0.0271  -> SUPPORTED
+  paired: declaring reduces the damage by only 0.0042, one-sided p = 0.087 (n.s.)
+READING: the effect PERSISTS when categoricals are correctly declared, so it is a
+  property of the model rather than an artefact of our preprocessing. Declaring
+  helps slightly and not significantly. The claim survives the check raised
+  against it.
+```
+
+```
+W2 -- BASELINE STRENGTH                                  STATUS: complete (51/53)
+OBJECTION: M7 used best-of-4 with 8 random configs (32 total); tabular venues
+  expect 100+ or AutoML. The spec itself named this the #1 objection.
+FIX: best-of-6 with 165 configs. XGBoost and CatBoost were listed as core deps in
+  the spec and had never been used. Budgets are COST-AWARE, not uniform: CatBoost
+  measured ~40x costlier per config than LightGBM on CPU, so a flat budget would
+  have spent nearly all compute on one family instead of broadening the ensemble.
+  Only strong_classical was re-run; TabPFN's M7 results are cached and untouched.
+KEY NUMBERS (51 datasets; har and Fashion-MNIST outstanding, both d=500 at n=4000):
+  ensemble winners: xgboost 22, catboost 14, lightgbm 10, mlp 5
+  baseline log-loss improved on 41/51 datasets: 0.3458 -> 0.3245
+  TabPFN lost on  9/51 (18%)  ->  16/51 (31%)
+  mean gap       -0.0378      ->  -0.0164   (Wilcoxon p 4.2e-07 -> 0.0019)
+  mean-gap bar    0.0377      ->   0.0267
+  best frozen score MAE 0.1659, AUROC 0.473  -> still DOES NOT BEAT the bar
+READING: the under-tuned baseline WAS inflating TabPFN's advantage -- its loss
+  rate nearly doubled, and the new families won 36/51 selections, so the old
+  ensemble was missing the strongest learners rather than merely under-searched.
+  TabPFN still wins overall, but any claim about the size of its margin must use
+  31%, not 18%. Crucially the ROUTING NEGATIVE SURVIVES the stronger bar, so it
+  was not an artefact of weak baselines -- which is exactly what this objection
+  alleged. The M9/M10 headline results are unaffected: they are paired within
+  TabPFN and never use this baseline.
+```
+
+```
+W4 -- CROSS-GENERATION (TabPFN-2.5 / 2.6 / 3)            STATUS: BLOCKED, not done
+OBJECTION: only TabPFN v2 was studied; does it hold for current models?
+WHAT WE FOUND: every post-v2 generation is a GATED HuggingFace repo requiring
+  browser-based licence acceptance. tabpfn/model_loading.py calls
+  ensure_license_accepted(hf_repo_id=...) for V2_5, V2_6 and V3 before any
+  download, and the failure path directs commercial users to sales@priorlabs.ai.
+WHY WE STOPPED: clearing the gate would require using the user's HuggingFace
+  credentials AND accepting a software licence on their behalf. That is a legal
+  agreement, not a technical step, and is not something to do autonomously. The
+  venv built for this was removed.
+STATUS OF THE OBJECTION: OPEN. It is answerable in ~1 hour of compute by anyone
+  who has accepted the licence; src/experiments/m9_rotation_transfer.py runs
+  unchanged against a TabPFN-3 install.
+NOTE: this is itself a finding worth one line in the paper -- reproducible
+  external evaluation of post-v2 TabPFN now requires accepting a commercial
+  licence, which is a real obstacle to independent auditing of these models.
+```
