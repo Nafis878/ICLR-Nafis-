@@ -5,3 +5,4 @@ data/openml_cache/
 results/cache/
 .pytest_cache/
 *.log
+.venv-tabpfn1/

@@ -1,0 +1,23 @@
+{
+  "created_utc": "20260912T123335Z",
+  "type": "M14 PRE-REGISTRATION -- cross-generation test, TabPFN v1 vs v2",
+  "motivation": "Objection W4: only TabPFN v2 was studied. The intended test was TabPFN-3, but every post-v2 generation (2.5/2.6/3) ships behind a client-side licence-acceptance flow (tabpfn.model_loading calls ensure_license_accepted before download), and the TABPFN-3 licence is agreed BY THE ACT OF DOWNLOADING. Accepting it is the user's decision, not the agent's, so that route was not taken. TabPFN v1 (package 0.1.11, ICLR 2023) is ungated and is a genuinely DIFFERENT model generation, so it answers the generality question with the access we legitimately have.",
+  "hypotheses": {
+    "H1_v1": "Rotating the numeric block increases TabPFN v1's test log-loss (paired one-sided Wilcoxon, alpha=0.05). Direction fixed by the v2 result.",
+    "H_gen": "The rotation axis is present in BOTH generations. Confirmation means the inductive bias is architectural/prior-level rather than specific to the v2 checkpoint. If v1 shows NO effect, the axis is v2-specific and the paper's generality claim must be narrowed accordingly."
+  },
+  "design": "identical paired probe to M9: same datasets, same split seed, same Haar-random rotation of the standardized numeric block, same >=4-numeric-column rule. Only the model changes. v1's stated limits are much tighter than v2's (<=1000 train rows, <=100 features, <=10 classes), so the sample is restricted to datasets inside THOSE limits and n_train is capped at 1000 for BOTH arms of the pair -- the comparison is within-generation-paired, never across models on different data.",
+  "analysis_plan": [
+    "v1 result reported on its own n",
+    "cross-generation comparison is descriptive: both generations' paired deltas on the SAME datasets, no pooled p-value",
+    "directions and alpha fixed here"
+  ],
+  "not_attempted": {
+    "tabpfn_3": "blocked by licence acceptance; objection remains open and is documented",
+    "note": "the HF repos report gated=False, so the weights are publicly hosted, but the TABPFN-3 Non-Commercial License states agreement is formed by downloading. That is a legal commitment for the user to make."
+  },
+  "code_sha256": {
+    "src/experiments/m9_rotation_transfer.py": "0083f11279ee6e53464e996a838e705663e52cac73f21105226dba2243d4a750"
+  },
+  "commit_hash": null
+}
